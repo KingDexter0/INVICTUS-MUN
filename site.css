@@ -228,6 +228,10 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
 .verify-card p { color: var(--muted); font-weight: 800; }
 .verify-qr { margin-top: 22px; }
 .verify-details .checkin-actions { margin-top: 18px; }
+.checkin-passcode { display: grid; gap: 10px; margin-bottom: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: #fcfbfe; }
+.checkin-passcode label { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.checkin-passcode input { width: 100%; margin-top: 8px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 999px; outline: 0; background: #fff; }
+.checkin-passcode input:focus { border-color: #aa90df; box-shadow: 0 0 0 4px #f1ecfb; }
 .checkin-actions small { display: block; margin-top: 10px; color: var(--muted); font-weight: 800; }
 
 @media (max-width: 1050px) {

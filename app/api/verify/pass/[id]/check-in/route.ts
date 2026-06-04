@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { assertAdmin } from "../../../../../../lib/admin";
+import { assertCheckInAccess } from "../../../../../../lib/checkin";
 import { prisma } from "../../../../../../lib/prisma";
 import { serializeRegistration } from "../../../../../../lib/registrations";
 
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
   try {
-    assertAdmin();
+    assertCheckInAccess();
 
     const registration = await prisma.registration.findUnique({
       where: { publicId: params.id }
@@ -42,7 +42,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return NextResponse.json({ registration: serializeRegistration(updated) });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Admin access required for check-in." }, { status: 401 });
+      return NextResponse.json({ error: "Check-in access required. Enter the check-in passcode to continue." }, { status: 401 });
     }
     console.error(error);
     return NextResponse.json({ error: "Could not check in delegate." }, { status: 500 });
