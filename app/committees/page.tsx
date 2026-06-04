@@ -63,7 +63,7 @@ const committees = [
     eligibility: "Writers, photographers, and designers",
     portfolio: "Reporter or photographer",
     tag: "press",
-    image: null
+    image: "/committees/international-press.jpg"
   }
 ];
 
