@@ -144,9 +144,9 @@ function actionSuccessMessage(label: string, name: string, emailStatus?: string)
 
 export function PortalClient() {
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [passcode, setPasscode] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [needsAdminSetup, setNeedsAdminSetup] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [ebProfiles, setEbProfiles] = useState<EBProfile[]>([]);
@@ -178,45 +178,6 @@ export function PortalClient() {
   const [deletingEbId, setDeletingEbId] = useState("");
   const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
   const [announcement, setAnnouncement] = useState({ title: "", audience: "All registered delegates", message: "" });
-
-  async function unlock(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!passcode.trim()) {
-      setMessage("Enter the admin passcode.");
-      setMessageType("error");
-      return;
-    }
-    setIsUnlocking(true);
-    setMessage("");
-    setMessageType("");
-    try {
-      const response = await fetch("/api/admin/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode })
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setMessage(payload.error || "Invalid admin passcode.");
-        setMessageType("error");
-        return;
-      }
-      setIsUnlocked(true);
-      setMessage("Portal unlocked.");
-      setMessageType("success");
-      await loadRegistrations();
-      await loadResources();
-      await loadEbProfiles();
-      await loadTestimonials();
-      await loadAdminUsers();
-      await loadAnalytics();
-    } catch {
-      setMessage("Could not reach the admin session server.");
-      setMessageType("error");
-    } finally {
-      setIsUnlocking(false);
-    }
-  }
 
   async function unlockWithAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -256,6 +217,49 @@ export function PortalClient() {
       setIsUnlocking(false);
     }
   }
+
+  async function bootstrapAdmin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setIsUnlocking(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/admin/bootstrap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          setupToken: formData.get("setupToken"),
+          name: formData.get("name"),
+          email: formData.get("email"),
+          password: formData.get("password")
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not create first admin.");
+        setMessageType("error");
+        return;
+      }
+      setNeedsAdminSetup(false);
+      setAdminEmail(String(formData.get("email") || ""));
+      setMessage("First admin created. Log in with that admin account.");
+      setMessageType("success");
+      event.currentTarget.reset();
+    } catch {
+      setMessage("Could not reach the admin setup server.");
+      setMessageType("error");
+    } finally {
+      setIsUnlocking(false);
+    }
+  }
+
+  useEffect(() => {
+    fetch("/api/admin/bootstrap")
+      .then((response) => response.json())
+      .then((payload) => setNeedsAdminSetup(Boolean(payload.needsSetup)))
+      .catch(() => setNeedsAdminSetup(false));
+  }, []);
 
   async function loadResources() {
     try {
@@ -832,20 +836,25 @@ export function PortalClient() {
   if (!isUnlocked) {
     return (
       <main className="portal-unlock">
-        <form className="registration-aside unlock-card" onSubmit={unlock}>
-          <h2>Admin Access</h2>
-          <p>Enter the admin passcode from `ADMIN_PASSCODE` to open the organizer portal.</p>
-          <input value={passcode} onChange={(event) => setPasscode(event.target.value)} type="password" placeholder="Admin passcode" autoComplete="current-password" />
-          <button className="button primary" type="submit" disabled={isUnlocking}>{isUnlocking ? "Unlocking..." : "Unlock Portal"}</button>
-          {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
-        </form>
         <form className="registration-aside unlock-card" onSubmit={unlockWithAccount}>
           <h2>Admin Account</h2>
-          <p>Or sign in with a full admin user account created inside the portal.</p>
+          <p>Sign in with your admin email and password.</p>
           <input value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} type="email" placeholder="Admin email" autoComplete="email" />
           <input value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} type="password" placeholder="Admin password" autoComplete="current-password" />
-          <button className="button secondary" type="submit" disabled={isUnlocking}>{isUnlocking ? "Signing in..." : "Login with Account"}</button>
+          <button className="button primary" type="submit" disabled={isUnlocking}>{isUnlocking ? "Signing in..." : "Login with Account"}</button>
+          {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
         </form>
+        {needsAdminSetup ? (
+          <form className="registration-aside unlock-card" onSubmit={bootstrapAdmin}>
+            <h2>First Admin Setup</h2>
+            <p>Create the first admin account using `ADMIN_SETUP_TOKEN` from the environment.</p>
+            <input name="setupToken" type="password" placeholder="Setup token" autoComplete="one-time-code" required />
+            <input name="name" placeholder="Admin name" required />
+            <input name="email" type="email" placeholder="Admin email" required />
+            <input name="password" type="password" placeholder="Password, 8+ characters" required />
+            <button className="button secondary" type="submit" disabled={isUnlocking}>{isUnlocking ? "Creating..." : "Create First Admin"}</button>
+          </form>
+        ) : null}
       </main>
     );
   }
@@ -1100,7 +1109,7 @@ export function PortalClient() {
                   <article className="resource-admin-item" key={user.id}>
                     <div><strong>{user.name}</strong><small>{user.email} - {user.role}</small></div>
                   </article>
-                )) : <div className="empty-state">No admin users created yet. The passcode login still works.</div>}
+                )) : <div className="empty-state">No admin users created yet.</div>}
               </div>
             </section>
             <section className="panel resources-panel" id="ops-tools">

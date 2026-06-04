@@ -18,7 +18,7 @@ DIRECT_URL="postgresql://..."
 CLOUDINARY_CLOUD_NAME="..."
 CLOUDINARY_API_KEY="..."
 CLOUDINARY_API_SECRET="..."
-ADMIN_PASSCODE="..."
+ADMIN_SETUP_TOKEN="..."
 CHECKIN_PASSCODE="..."
 ADMIN_SESSION_SECRET="..."
 RESEND_API_KEY="..."
@@ -60,7 +60,7 @@ Open `http://127.0.0.1:4173`.
 
 - `/registration` creates a database registration and uploads payment proof to Cloudinary when a file is attached.
 - `/dashboard?id=INV-2026-001` shows delegate status, allotment, announcements, and QR preview after allotment release.
-- `/mun-ops` requires `ADMIN_PASSCODE`, then lets admins verify/reject payment, approve registrations, release allotments, save notes, publish announcements, manage resources/EB/testimonials/admin users, and export CSV.
+- `/mun-ops` requires an admin email/password account, then lets admins verify/reject payment, approve registrations, release allotments, save notes, publish announcements, manage resources/EB/testimonials/admin users, and export CSV.
 - `/admin-portal` and `/portal` redirect to `/mun-ops` for backwards compatibility.
 - `/delegate/login` lets delegates open a private dashboard with registered email + phone.
 - `/verify/pass/INV-2026-001` verifies QR passes and supports limited staff check-in through `CHECKIN_PASSCODE`.
@@ -74,6 +74,10 @@ Open `http://127.0.0.1:4173`.
 Razorpay requires `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `NEXT_PUBLIC_RAZORPAY_KEY_ID`. The public status dashboard shows a Razorpay payment button for unpaid registrations and verifies payment signatures server-side.
 
 WhatsApp automation uses Meta WhatsApp Cloud API. Set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, and an approved `WHATSAPP_TEMPLATE_NAME`. If these are missing, WhatsApp sends are safely skipped/logged.
+
+## First Admin Setup
+
+Set `ADMIN_SETUP_TOKEN` in production. If no admin users exist yet, `/mun-ops` shows a **First Admin Setup** form. After the first admin account is created, only admin email/password login is shown.
 
 ## Resend Test Email Mode
 
