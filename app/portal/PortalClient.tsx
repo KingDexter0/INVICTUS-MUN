@@ -401,7 +401,7 @@ export function PortalClient() {
   return (
     <>
       <aside className="sidebar">
-        <Link className="brand" href="/"><span className="brand-mark">I</span><span><strong>INVICTUS</strong><small>MODEL UNITED NATIONS</small></span></Link>
+        <Link className="brand" href="/"><span className="brand-mark logo-mark"><img src="/invictus-logo.jpg" alt="" /></span><span><strong>INVICTUS</strong><small>MODEL UNITED NATIONS</small></span></Link>
         <nav className="primary-nav" aria-label="Main navigation">
           <p className="nav-label">COMMAND CENTRE</p>
           <Link className="nav-item" href="/"><span className="nav-icon">H</span> Public Site</Link>

@@ -4,7 +4,7 @@ export function SiteHeader({ cta = "Register Now", ctaHref = "/registration" }: 
   return (
     <header className="site-header">
       <Link className="brand" href="/" aria-label="Invictus MUN home">
-        <span className="brand-mark">I</span>
+        <span className="brand-mark logo-mark"><img src="/invictus-logo.jpg" alt="" /></span>
         <span>
           <strong>INVICTUS</strong>
           <small>MODEL UNITED NATIONS</small>
@@ -34,7 +34,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div>
         <Link className="brand" href="/">
-          <span className="brand-mark">I</span>
+          <span className="brand-mark logo-mark"><img src="/invictus-logo.jpg" alt="" /></span>
           <span>
             <strong>INVICTUS</strong>
             <small>MODEL UNITED NATIONS</small>
