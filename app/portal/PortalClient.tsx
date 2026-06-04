@@ -945,7 +945,7 @@ export function PortalClient() {
             <aside className="panel attention-panel">
               <div className="panel-head"><div><p className="eyebrow">PRIORITY QUEUE</p><h2>Needs attention</h2></div><span className="count-badge">{stats.needsPayment + stats.needsAllotment}</span></div>
               <div className="attention-list">
-                <button className="attention-item" onClick={() => jumpToRegistrations("payments")}><span className="attention-icon urgent">!</span><span><strong>{stats.needsPayment} payments need verification</strong><small>Review screenshots and UTRs</small></span><b>Open</b></button>
+                <button className="attention-item" onClick={() => jumpToRegistrations("payments")}><span className="attention-icon urgent">!</span><span><strong>{stats.needsPayment} payments pending</strong><small>Razorpay payments verify automatically</small></span><b>Open</b></button>
                 <button className="attention-item" onClick={() => jumpToRegistrations("allotments")}><span className="attention-icon">A</span><span><strong>{stats.needsAllotment} delegates await allotment</strong><small>Approved but not released</small></span><b>Open</b></button>
               </div>
               <form className="announcement-mini" onSubmit={publishAnnouncement}>
@@ -1154,7 +1154,7 @@ export function PortalClient() {
               <div><strong>Phone</strong><span>{active.phone}</span></div>
               <div><strong>Institution</strong><span>{active.institution || "-"}</span></div>
               <div><strong>Preference 1</strong><span>{active.committee1} / {active.portfolio1 || "No portfolio"}</span></div>
-              <div><strong>Payment proof</strong><span>{active.paymentProofUrl ? <a href={active.paymentProofUrl} target="_blank" rel="noopener noreferrer">Open proof</a> : "Not uploaded"}</span></div>
+              <div><strong>Payment method</strong><span>{active.paymentProofUrl ? <a href={active.paymentProofUrl} target="_blank" rel="noopener noreferrer">Open legacy proof</a> : "Razorpay online payment"}</span></div>
               <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
             </div>
             <div className="allotment-editor">

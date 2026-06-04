@@ -222,7 +222,7 @@ export function DashboardClient() {
                   ["Registration type", registration.type],
                   ["Preference 1", registration.committee1],
                   ["Preference 2", registration.committee2 || "-"],
-                  ["Transaction ID", registration.utr || "Not submitted"]
+                  ["Payment ID", registration.utr || "Not paid through Razorpay yet"]
                 ].map(([label, value]) => (
                   <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
                 ))}

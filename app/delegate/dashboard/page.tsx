@@ -67,7 +67,7 @@ export default async function DelegateDashboardPage() {
                   ["Preference 1", registration.committee1],
                   ["Preference 2", registration.committee2 || "-"],
                   ["Portfolio preference", registration.portfolio1 || "-"],
-                  ["Transaction ID", registration.utr || "Not submitted"]
+                  ["Payment ID", registration.utr || "Not paid through Razorpay yet"]
                 ].map(([label, value]) => (
                   <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
                 ))}

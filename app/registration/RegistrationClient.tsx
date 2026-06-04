@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { validatePaymentProofFile } from "../../lib/registrations";
 
 export function RegistrationClient() {
   const router = useRouter();
@@ -16,15 +15,11 @@ export function RegistrationClient() {
     const name = String(formData.get("name") || "").trim();
     const email = String(formData.get("email") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
-    const payment = formData.get("payment");
 
     if (name.length < 2) errors.push("Enter your full name.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Enter a valid email address.");
     if (!/^[0-9+\-\s()]{7,20}$/.test(phone)) errors.push("Enter a valid phone number.");
     if (!String(formData.get("committee1") || "").trim()) errors.push("Choose your first committee preference.");
-
-    const paymentError = validatePaymentProofFile(payment instanceof File ? payment : null);
-    if (paymentError) errors.push(paymentError);
 
     return errors;
   }
@@ -59,7 +54,7 @@ export function RegistrationClient() {
         return;
       }
 
-      setMessage("Registration saved successfully. Opening your dashboard...");
+      setMessage("Registration saved successfully. Opening Razorpay payment from your dashboard...");
       setMessageType("success");
       router.push(`/dashboard?id=${encodeURIComponent(payload.id)}`);
     } catch {
@@ -88,12 +83,14 @@ export function RegistrationClient() {
           <label>Committee preference 2<select name="committee2"><option>Arab League</option><option>UNHRC</option><option>UNCSW</option><option>FIFA</option><option>Lok Sabha</option><option>International Press</option></select></label>
         </fieldset>
         <fieldset>
-          <legend>Experience and Payment</legend>
-          <label>MUNs attended<input type="number" min="0" name="muns" placeholder="0" /></label>
-          <label>Awards won<input type="number" min="0" name="awards" placeholder="0" /></label>
-          <label>Transaction ID / UTR<input name="utr" placeholder="UPI or bank transaction ID" /></label>
-          <label>Payment proof<input type="file" name="payment" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" /></label>
-          <label className="wide">Experience description<textarea rows={4} name="experience" placeholder="Tell us about prior debate, EB, press, or leadership experience."></textarea></label>
+          <legend>Razorpay Payment</legend>
+          <div className="empty-panel wide">
+            <h2>Pay online after registration</h2>
+            <p>
+              Submit this form first. Your dashboard will open with a secure Razorpay payment button
+              for the exact registration fee. Payment status updates automatically after successful payment.
+            </p>
+          </div>
         </fieldset>
         <fieldset>
           <legend>Accommodation</legend>

@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { assertAdmin } from "../../../lib/admin";
-import { uploadPaymentProof } from "../../../lib/cloudinary";
 import { sendRegistrationEmail } from "../../../lib/email";
 import { prisma } from "../../../lib/prisma";
 import {
   amountForType,
   publicIdFromCount,
-  serializeRegistration,
-  validatePaymentProofFile
+  serializeRegistration
 } from "../../../lib/registrations";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +22,7 @@ function numberOrNull(formData: FormData, key: string) {
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
 }
 
-function validateRegistration(formData: FormData, payment: File | null) {
+function validateRegistration(formData: FormData) {
   const errors: string[] = [];
   const email = text(formData, "email");
   const phone = text(formData, "phone");
@@ -39,18 +37,13 @@ function validateRegistration(formData: FormData, payment: File | null) {
   if (muns && Number(muns) < 0) errors.push("MUNs attended cannot be negative.");
   if (awards && Number(awards) < 0) errors.push("Awards won cannot be negative.");
 
-  const paymentError = validatePaymentProofFile(payment);
-  if (paymentError) errors.push(paymentError);
-
   return errors;
 }
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const payment = formData.get("payment");
-    const paymentFile = payment instanceof File ? payment : null;
-    const errors = validateRegistration(formData, paymentFile);
+    const errors = validateRegistration(formData);
 
     if (errors.length) {
       return NextResponse.json(
@@ -60,7 +53,6 @@ export async function POST(request: Request) {
     }
 
     const type = text(formData, "type") || "Individual Delegate";
-    const upload = paymentFile ? await uploadPaymentProof(paymentFile) : null;
     const count = await prisma.registration.count();
 
     const registration = await prisma.registration.create({
@@ -79,13 +71,13 @@ export async function POST(request: Request) {
         experience: text(formData, "experience") || null,
         utr: text(formData, "utr") || null,
         amount: amountForType(type),
-        paymentProofUrl: upload?.secure_url ?? null,
-        paymentProofPublicId: upload?.public_id ?? null,
+        paymentProofUrl: null,
+        paymentProofPublicId: null,
         accommodation: text(formData, "accommodation") || null,
         transport: text(formData, "transport") || null,
         arrivalCity: text(formData, "arrivalCity") || null,
         requirements: text(formData, "requirements") || null,
-        paymentStatus: formData.get("utr") || upload ? "Under Review" : "Pending"
+        paymentStatus: "Pending"
       }
     });
 
@@ -94,7 +86,7 @@ export async function POST(request: Request) {
       name: registration.name,
       publicId: registration.publicId,
       heading: "Registration submitted",
-      action: "Your Invictus MUN registration has been submitted successfully. The organizing team will review your payment and registration details.",
+      action: "Your Invictus MUN registration has been submitted successfully. Please open your dashboard to complete payment securely through Razorpay.",
       dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
       details: [
         ["Registration type", registration.type],
@@ -107,12 +99,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ registration: serializeRegistration(registration), id: registration.publicId });
   } catch (error) {
     console.error(error);
-    if (error instanceof Error && error.message.includes("Cloudinary is not configured")) {
-      return NextResponse.json(
-        { error: "Payment proof upload is not configured. Please submit without the file or contact the organizing team." },
-        { status: 503 }
-      );
-    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
         { error: "A registration ID conflict occurred. Please submit the form again." },

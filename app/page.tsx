@@ -112,8 +112,8 @@ export default async function HomePage() {
           </div>
           <div className="process-grid">
             <article><span>1</span><strong>Submit details</strong><p>Personal, committee, experience, and accommodation fields.</p></article>
-            <article><span>2</span><strong>Upload payment proof</strong><p>Attach your payment reference or proof for review.</p></article>
-            <article><span>3</span><strong>Verification</strong><p>The organizing team reviews payment and registration details.</p></article>
+            <article><span>2</span><strong>Pay with Razorpay</strong><p>Complete the registration fee securely from your dashboard.</p></article>
+            <article><span>3</span><strong>Verification</strong><p>Successful Razorpay payments update your status automatically.</p></article>
             <article><span>4</span><strong>Receive allotment</strong><p>Committee, portfolio, resources, and QR pass appear on the dashboard.</p></article>
           </div>
         </section>
@@ -162,7 +162,7 @@ export default async function HomePage() {
         <section className="section faq" id="faq">
           <div className="section-head"><div><p className="eyebrow">FAQS</p><h2>Common questions.</h2></div></div>
           <details open><summary>Who can register?</summary><p>Individual delegates, delegation delegates, international delegates, International Press members, EB applicants, and Secretariat members can register.</p></details>
-          <details><summary>How are payments verified?</summary><p>Delegates upload a screenshot and transaction ID. The organizing team reviews the proof before approval.</p></details>
+          <details><summary>How are payments verified?</summary><p>Delegates pay online through Razorpay. Successful payments are verified automatically and reflected on the dashboard.</p></details>
           <details><summary>When do allotments appear?</summary><p>Allotments appear after payment verification and registration approval.</p></details>
         </section>
 
@@ -170,7 +170,7 @@ export default async function HomePage() {
           <div className="section-head"><div><p className="eyebrow">POLICIES</p><h2>Clear rules for a professional conference.</h2></div></div>
           <div className="policy-grid">
             <article><strong>Code of Conduct</strong><p>Delegates must maintain respectful language, follow committee procedure, and comply with Secretariat instructions throughout the conference.</p></article>
-            <article><strong>Refund and Payment Policy</strong><p>Registrations move forward after payment proof is verified. Refund requests are reviewed by the organizing team according to conference timelines and payment confirmation status.</p></article>
+            <article><strong>Refund and Payment Policy</strong><p>Registrations move forward after Razorpay payment confirmation. Refund requests are reviewed by the organizing team according to conference timelines and payment status.</p></article>
             <article><strong>Allotment Policy</strong><p>Allotments depend on committee preference, experience, eligibility, and capacity. Final decisions are released through the delegate dashboard.</p></article>
             <article><strong>Privacy Policy</strong><p>Participant records are used only for registration, verification, allotment, communication, and event operations.</p></article>
           </div>

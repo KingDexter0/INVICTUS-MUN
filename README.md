@@ -58,7 +58,7 @@ Open `http://127.0.0.1:4173`.
 
 ## Core Flow
 
-- `/registration` creates a database registration and uploads payment proof to Cloudinary when a file is attached.
+- `/registration` creates a database registration and sends delegates to the dashboard for Razorpay payment.
 - `/dashboard?id=INV-2026-001` shows delegate status, allotment, announcements, and QR preview after allotment release.
 - `/mun-ops` requires an admin email/password account, then lets admins verify/reject payment, approve registrations, release allotments, save notes, publish announcements, manage resources/EB/testimonials/admin users, and export CSV.
 - `/admin-portal` and `/portal` redirect to `/mun-ops` for backwards compatibility.
