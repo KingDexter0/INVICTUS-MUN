@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 type Announcement = {
@@ -143,7 +144,14 @@ export function DashboardClient() {
               <h2>QR Pass</h2>
               <div className="qr-pass">
                 {hasAllotment ? (
-                  <><div className="qr-box">{registration.publicId.slice(-3)}</div><strong>{registration.name}</strong><span>{registration.allottedCommittee} - {registration.allottedPortfolio}</span><small>/verify/pass/{registration.publicId}</small></>
+                  <>
+                    <Link className="qr-link" href={`/verify/pass/${registration.publicId}`}>
+                      <div className="qr-box">{registration.publicId.slice(-3)}</div>
+                      <strong>{registration.name}</strong>
+                      <span>{registration.allottedCommittee} - {registration.allottedPortfolio}</span>
+                      <small>/verify/pass/{registration.publicId}</small>
+                    </Link>
+                  </>
                 ) : (
                   <><div className="qr-box locked">--</div><strong>QR pass locked</strong><span>Approval and allotment required.</span></>
                 )}

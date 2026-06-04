@@ -204,11 +204,30 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
   background-size: 16px 16px; border: 1px solid var(--line); font-size: 30px; font-weight: 800;
 }
 .qr-box.locked { color: var(--muted); background: var(--soft); }
+.qr-link { display: block; }
 .resource-list.compact a { padding: 14px; }
+.verify-layout { display: grid; grid-template-columns: minmax(280px, .7fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.verify-card {
+  padding: 30px; border: 1px solid var(--line); border-radius: 28px; background: #fff; box-shadow: var(--shadow);
+}
+.verify-card.valid { border-color: #cfeedd; background: linear-gradient(180deg, #fff, #f4fbf7); }
+.verify-card.invalid { border-color: #f1d3d9; background: linear-gradient(180deg, #fff, #fff6f7); }
+.verify-badge, .checked-pill {
+  display: inline-flex; padding: 7px 10px; border-radius: 999px; color: var(--purple-dark); background: var(--lavender);
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em;
+}
+.verify-card.valid .verify-badge, .checked-pill { color: var(--green); background: #e9f8f0; }
+.verify-card.invalid .verify-badge { color: #b44d5c; background: #fbecef; }
+.verify-card h2 { margin: 20px 0 6px; font-size: 34px; }
+.verify-card p { color: var(--muted); font-weight: 800; }
+.verify-qr { margin-top: 22px; }
+.verify-details .checkin-actions { margin-top: 18px; }
+.checkin-actions small { display: block; margin-top: 10px; color: var(--muted); font-weight: 800; }
 
 @media (max-width: 1050px) {
   .hero, .split, .split.reverse, .resources, .contact, .registration-layout, .partnerships { grid-template-columns: 1fr; }
   .values-grid, .committee-grid, .process-grid, .team-grid, .credibility-grid, .ops-grid, .policy-grid, .committee-directory, .delegate-status-grid, .dashboard-detail-grid { grid-template-columns: repeat(2, 1fr); }
+  .verify-layout { grid-template-columns: 1fr; }
   .registration-aside { position: static; }
 }
 @media (max-width: 760px) {
