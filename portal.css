@@ -236,6 +236,22 @@ dialog input:focus, dialog select:focus, dialog textarea:focus { border-color: #
   width: 100%; margin-bottom: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; outline: 0; background: #fcfbfd; font-size: 12px;
 }
 .announcement-mini textarea { min-height: 76px; resize: vertical; }
+.resource-manager { padding: 14px; border-bottom: 1px solid var(--line); }
+.resource-manager input, .resource-manager textarea, .resource-manager select {
+  width: 100%; margin-bottom: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; outline: 0; background: #fcfbfd; font-size: 12px;
+}
+.resource-manager textarea { min-height: 64px; resize: vertical; }
+.resource-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.resource-admin-list { padding: 8px 14px 14px; display: grid; gap: 8px; }
+.resource-admin-item {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fcfbfd;
+}
+.resource-admin-item strong, .resource-admin-item small { display: block; }
+.resource-admin-item strong { font-size: 11px; }
+.resource-admin-item small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.resource-admin-item p { margin: 7px 0 5px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.resource-admin-item a { color: var(--purple); font-size: 10px; font-weight: 700; }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 18px;
   background: rgba(28, 22, 42, .42); backdrop-filter: blur(3px);

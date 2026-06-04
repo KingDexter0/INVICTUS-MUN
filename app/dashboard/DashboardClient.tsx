@@ -12,6 +12,16 @@ type Announcement = {
   createdAt: string;
 };
 
+type Resource = {
+  id: string;
+  title: string;
+  description?: string | null;
+  category: string;
+  accessLevel: string;
+  fileUrl: string;
+  createdAt: string;
+};
+
 type Registration = {
   publicId: string;
   name: string;
@@ -35,6 +45,7 @@ export function DashboardClient() {
   const [lookup, setLookup] = useState(searchParams.get("id") || "");
   const [registration, setRegistration] = useState<Registration | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -84,10 +95,20 @@ export function DashboardClient() {
       .then((response) => response.json())
       .then((payload) => setAnnouncements(payload.announcements || []))
       .catch(() => setAnnouncements([]));
+    fetch("/api/resources")
+      .then((response) => response.json())
+      .then((payload) => setResources(payload.resources || []))
+      .catch(() => setResources([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const hasAllotment = registration?.allotmentStatus === "Allotted";
+  const visibleResources = resources.filter((resource) => {
+    if (resource.accessLevel === "Public" || resource.accessLevel === "Registered") return true;
+    if (resource.accessLevel === "Approved") return registration?.registrationStatus === "Approved";
+    if (resource.accessLevel === "Allotted") return hasAllotment;
+    return true;
+  });
 
   return (
     <section className="section delegate-dashboard">
@@ -167,7 +188,14 @@ export function DashboardClient() {
             </article>
             <article className="dashboard-card">
               <h2>Resources</h2>
-              <p className="empty-copy">Delegate-only resources will appear here after the organizing team releases them.</p>
+              <div className="resource-list compact">
+                {visibleResources.length ? visibleResources.map((resource) => (
+                  <a key={resource.id} href={resource.fileUrl} target="_blank">
+                    <strong>{resource.title}</strong>
+                    <span>{resource.category} - {resource.accessLevel}</span>
+                  </a>
+                )) : <p className="empty-copy">No resources have been released for your current status yet.</p>}
+              </div>
             </article>
           </div>
         </>

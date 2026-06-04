@@ -30,6 +30,18 @@ type Registration = {
   notes?: Note[];
 };
 
+type Resource = {
+  id: string;
+  title: string;
+  description?: string | null;
+  category: string;
+  accessLevel: string;
+  fileUrl: string;
+  filePublicId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const capacities: Record<string, number> = {
   UNHRC: 70,
   "Arab League": 65,
@@ -73,6 +85,7 @@ export function PortalClient() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passcode, setPasscode] = useState("");
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedCommittee, setSelectedCommittee] = useState("");
@@ -86,6 +99,8 @@ export function PortalClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeAction, setActiveAction] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isUploadingResource, setIsUploadingResource] = useState(false);
+  const [deletingResourceId, setDeletingResourceId] = useState("");
   const [announcement, setAnnouncement] = useState({ title: "", audience: "All registered delegates", message: "" });
 
   async function unlock(event: FormEvent<HTMLFormElement>) {
@@ -114,11 +129,28 @@ export function PortalClient() {
       setMessage("Portal unlocked.");
       setMessageType("success");
       await loadRegistrations();
+      await loadResources();
     } catch {
       setMessage("Could not reach the admin session server.");
       setMessageType("error");
     } finally {
       setIsUnlocking(false);
+    }
+  }
+
+  async function loadResources() {
+    try {
+      const response = await fetch("/api/resources");
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage(payload.error || "Could not load resources.");
+        setMessageType("error");
+        return;
+      }
+      setResources(payload.resources || []);
+    } catch {
+      setMessage("Could not load resources.");
+      setMessageType("error");
     }
   }
 
@@ -150,7 +182,10 @@ export function PortalClient() {
   }
 
   useEffect(() => {
-    if (isUnlocked) void loadRegistrations();
+    if (isUnlocked) {
+      void loadRegistrations();
+      void loadResources();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, isUnlocked]);
 
@@ -264,6 +299,77 @@ export function PortalClient() {
     }
   }
 
+  async function uploadResource(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const title = String(formData.get("title") || "").trim();
+    const file = formData.get("file");
+
+    if (title.length < 3) {
+      setMessage("Resource title must be at least 3 characters.");
+      setMessageType("error");
+      return;
+    }
+    if (!(file instanceof File) || file.size === 0) {
+      setMessage("Upload a file before saving the resource.");
+      setMessageType("error");
+      return;
+    }
+
+    setIsUploadingResource(true);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const response = await fetch("/api/resources", {
+        method: "POST",
+        body: formData
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage(payload.error || "Could not upload resource.");
+        setMessageType("error");
+        return;
+      }
+      form.reset();
+      setMessage("Resource uploaded.");
+      setMessageType("success");
+      await loadResources();
+    } catch {
+      setMessage("Could not reach the resource upload server.");
+      setMessageType("error");
+    } finally {
+      setIsUploadingResource(false);
+    }
+  }
+
+  async function deleteResource(resource: Resource) {
+    setDeletingResourceId(resource.id);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const response = await fetch(`/api/resources/${resource.id}`, {
+        method: "DELETE"
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not delete resource.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(`Deleted resource: ${resource.title}.`);
+      setMessageType("success");
+      await loadResources();
+    } catch {
+      setMessage("Could not reach the resource delete server.");
+      setMessageType("error");
+    } finally {
+      setDeletingResourceId("");
+    }
+  }
+
   if (!isUnlocked) {
     return (
       <main className="portal-unlock">
@@ -289,6 +395,7 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("all")}><span className="nav-icon">R</span> Registrations <b>{registrations.length}</b></button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("payments")}><span className="nav-icon">P</span> Payments <b>{stats.needsPayment}</b></button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("allotments")}><span className="nav-icon">A</span> Allotments <b>{stats.needsAllotment}</b></button>
+          <button className="nav-item" type="button" onClick={() => document.querySelector("#resources")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">D</span> Resources <b>{resources.length}</b></button>
         </nav>
         <div className="sidebar-bottom">
           <div className="admin-card"><div className="avatar">AG</div><span><strong>Arin Gupta</strong><small>Super Admin</small></span></div>
@@ -388,6 +495,45 @@ export function PortalClient() {
                     </button>
                   );
                 })}
+              </div>
+            </section>
+            <section className="panel resources-panel" id="resources">
+              <div className="panel-head"><div><p className="eyebrow">DELEGATE FILES</p><h2>Resources</h2></div><span className="count-badge">{resources.length}</span></div>
+              <form className="resource-manager" onSubmit={uploadResource}>
+                <input name="title" placeholder="Resource title" required />
+                <textarea name="description" placeholder="Short description" />
+                <div className="resource-fields">
+                  <select name="category" defaultValue="Committee Guide">
+                    <option>Committee Guide</option>
+                    <option>Rules</option>
+                    <option>Schedule</option>
+                    <option>Policy</option>
+                    <option>Other</option>
+                  </select>
+                  <select name="accessLevel" defaultValue="Registered">
+                    <option>Public</option>
+                    <option>Registered</option>
+                    <option>Approved</option>
+                    <option>Allotted</option>
+                  </select>
+                </div>
+                <input name="file" type="file" required />
+                <button className="button secondary full" type="submit" disabled={isUploadingResource}>{isUploadingResource ? "Uploading..." : "Upload resource"}</button>
+              </form>
+              <div className="resource-admin-list">
+                {resources.length ? resources.map((resource) => (
+                  <article className="resource-admin-item" key={resource.id}>
+                    <div>
+                      <strong>{resource.title}</strong>
+                      <small>{resource.category} - {resource.accessLevel}</small>
+                      {resource.description ? <p>{resource.description}</p> : null}
+                      <a href={resource.fileUrl} target="_blank">Open file</a>
+                    </div>
+                    <button className="row-action" type="button" disabled={deletingResourceId === resource.id} onClick={() => deleteResource(resource)}>
+                      {deletingResourceId === resource.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </article>
+                )) : <div className="empty-state">No resources uploaded yet.</div>}
               </div>
             </section>
           </div>

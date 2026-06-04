@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+import { assertAdmin } from "../../../../lib/admin";
+import { deleteCloudinaryFile } from "../../../../lib/cloudinary";
+import { prisma } from "../../../../lib/prisma";
+
+export const dynamic = "force-dynamic";
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  try {
+    assertAdmin();
+
+    const resource = await prisma.resource.findUnique({
+      where: { id: params.id }
+    });
+
+    if (!resource) {
+      return NextResponse.json({ error: "Resource not found." }, { status: 404 });
+    }
+
+    await prisma.resource.delete({
+      where: { id: params.id }
+    });
+
+    await deleteCloudinaryFile(resource.filePublicId).catch((error) => {
+      console.error("Could not delete Cloudinary resource", error);
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if ((error as Error).message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Admin access required." }, { status: 401 });
+    }
+    console.error(error);
+    return NextResponse.json({ error: "Could not delete resource." }, { status: 500 });
+  }
+}
