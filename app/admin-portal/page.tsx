@@ -1,5 +1,5 @@
-import { PortalClient } from "../portal/PortalClient";
+import { redirect } from "next/navigation";
 
 export default function AdminPortalPage() {
-  return <PortalClient />;
+  redirect("/mun-ops");
 }
