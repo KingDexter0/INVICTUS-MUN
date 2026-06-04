@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Registration {
+  id                   String      @id @default(cuid())
+  publicId             String      @unique
+  name                 String
+  email                String
+  phone                String
+  institution          String?
+  type                 String
+  committee1           String
+  committee2           String?
+  portfolio1           String?
+  muns                 Int?
+  awards               Int?
+  experience           String?
+  utr                  String?
+  amount               Int         @default(1500)
+  paymentProofUrl      String?
+  paymentProofPublicId String?
+  accommodation        String?
+  transport            String?
+  arrivalCity          String?
+  requirements         String?
+  paymentStatus        String      @default("Pending")
+  registrationStatus   String      @default("Pending")
+  allotmentStatus      String      @default("Not allotted")
+  allottedCommittee    String?
+  allottedPortfolio    String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  notes                AdminNote[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([paymentStatus])
+  @@index([registrationStatus])
+  @@index([allotmentStatus])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  audience  String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model AdminNote {
+  id             String       @id @default(cuid())
+  registrationId String
+  note           String
+  createdAt      DateTime     @default(now())
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+}
