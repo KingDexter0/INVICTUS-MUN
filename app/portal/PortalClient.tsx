@@ -81,6 +81,20 @@ function filterLabel(filter: string) {
   return labels[filter] || filter;
 }
 
+function actionSuccessMessage(label: string, name: string, emailStatus?: string) {
+  const labels: Record<string, string> = {
+    "Payment rejection": "Payment rejected",
+    "Payment verification": "Payment verified",
+    "Registration approval": "Registration approved",
+    "Allotment release": "Allotment released"
+  };
+  const action = labels[label] || label;
+  if (emailStatus === "sent") return `${action} for ${name}, and email sent.`;
+  if (emailStatus === "failed") return `${action} for ${name}, but email failed.`;
+  if (emailStatus === "skipped") return `${action} for ${name}. Email skipped because Resend is not configured.`;
+  return `${action} saved for ${name}.`;
+}
+
 export function PortalClient() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passcode, setPasscode] = useState("");
@@ -256,7 +270,7 @@ export function PortalClient() {
         setMessageType("error");
         return;
       }
-      setMessage(`${label} saved for ${active.name}.`);
+      setMessage(actionSuccessMessage(label, active.name, payload.emailStatus));
       setMessageType("success");
       setActive(null);
       await loadRegistrations();

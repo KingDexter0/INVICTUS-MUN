@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../lib/admin";
+import { sendRegistrationEmail } from "../../../../lib/email";
 import { prisma } from "../../../../lib/prisma";
 import { serializeRegistration } from "../../../../lib/registrations";
 
@@ -53,7 +54,63 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       include: { notes: { orderBy: { createdAt: "desc" } } }
     });
 
-    return NextResponse.json({ registration: serializeRegistration(registration) });
+    let emailStatus: "sent" | "failed" | "skipped" | undefined;
+    if (body.paymentStatus === "Verified" && !body.registrationStatus && !body.allotmentStatus) {
+      emailStatus = (await sendRegistrationEmail({
+        to: registration.email,
+        name: registration.name,
+        publicId: registration.publicId,
+        heading: "Payment verified",
+        action: "Your payment has been verified by the Invictus MUN organizing team.",
+        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+        details: [
+          ["Payment status", registration.paymentStatus],
+          ["Registration status", registration.registrationStatus]
+        ]
+      })).status;
+    } else if (body.paymentStatus === "Rejected") {
+      emailStatus = (await sendRegistrationEmail({
+        to: registration.email,
+        name: registration.name,
+        publicId: registration.publicId,
+        heading: "Payment proof needs attention",
+        action: "Your payment proof could not be verified. Please contact the organizing team or submit the correct payment details.",
+        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+        details: [
+          ["Payment status", registration.paymentStatus],
+          ["Registration status", registration.registrationStatus]
+        ]
+      })).status;
+    } else if (body.allotmentStatus === "Allotted") {
+      emailStatus = (await sendRegistrationEmail({
+        to: registration.email,
+        name: registration.name,
+        publicId: registration.publicId,
+        heading: "Allotment released",
+        action: "Your Invictus MUN committee and portfolio allotment has been released.",
+        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+        details: [
+          ["Committee", registration.allottedCommittee],
+          ["Portfolio", registration.allottedPortfolio],
+          ["Allotment status", registration.allotmentStatus]
+        ]
+      })).status;
+    } else if (body.registrationStatus === "Approved") {
+      emailStatus = (await sendRegistrationEmail({
+        to: registration.email,
+        name: registration.name,
+        publicId: registration.publicId,
+        heading: "Registration approved",
+        action: "Your Invictus MUN registration has been approved.",
+        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+        details: [
+          ["Payment status", registration.paymentStatus],
+          ["Registration status", registration.registrationStatus]
+        ]
+      })).status;
+    }
+
+    return NextResponse.json({ registration: serializeRegistration(registration), emailStatus });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });

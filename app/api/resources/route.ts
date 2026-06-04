@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../lib/admin";
 import { uploadResourceFile } from "../../../lib/cloudinary";
+import { sendResourceEmail } from "../../../lib/email";
 import { prisma } from "../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +75,28 @@ export async function POST(request: Request) {
         filePublicId: upload.public_id
       }
     });
+
+    const recipients = await prisma.registration.findMany({
+      where: {
+        ...(accessLevel === "Approved" ? { registrationStatus: "Approved" } : {}),
+        ...(accessLevel === "Allotted" ? { allotmentStatus: "Allotted" } : {})
+      },
+      select: { email: true, name: true, publicId: true },
+      take: 500
+    });
+
+    void Promise.all(
+      recipients.map((recipient) =>
+        sendResourceEmail({
+          to: recipient.email,
+          name: recipient.name,
+          title: resource.title,
+          category: resource.category,
+          accessLevel: resource.accessLevel,
+          dashboardPath: `/dashboard?id=${encodeURIComponent(recipient.publicId)}`
+        })
+      )
+    );
 
     return NextResponse.json({ resource: serializeResource(resource) });
   } catch (error) {

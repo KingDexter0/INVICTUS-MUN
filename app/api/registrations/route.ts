@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { assertAdmin } from "../../../lib/admin";
 import { uploadPaymentProof } from "../../../lib/cloudinary";
+import { sendRegistrationEmail } from "../../../lib/email";
 import { prisma } from "../../../lib/prisma";
 import {
   amountForType,
@@ -86,6 +87,21 @@ export async function POST(request: Request) {
         requirements: text(formData, "requirements") || null,
         paymentStatus: formData.get("utr") || upload ? "Under Review" : "Pending"
       }
+    });
+
+    void sendRegistrationEmail({
+      to: registration.email,
+      name: registration.name,
+      publicId: registration.publicId,
+      heading: "Registration submitted",
+      action: "Your Invictus MUN registration has been submitted successfully. The organizing team will review your payment and registration details.",
+      dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+      details: [
+        ["Registration type", registration.type],
+        ["Committee preference", registration.committee1],
+        ["Payment status", registration.paymentStatus],
+        ["Registration status", registration.registrationStatus]
+      ]
     });
 
     return NextResponse.json({ registration: serializeRegistration(registration), id: registration.publicId });
