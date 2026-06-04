@@ -161,8 +161,10 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
 .registration-form input:focus, .registration-form select:focus, .registration-form textarea:focus { border-color: #aa90df; box-shadow: 0 0 0 4px #f1ecfb; }
 .registration-form .wide { grid-column: 1 / -1; }
 .registration-form .button { justify-self: start; }
+.delegate-login-form { align-self: start; }
 .registration-aside { position: sticky; top: 104px; align-self: start; }
 .registration-aside h2 { font-size: 28px; }
+.registration-aside .button { margin-top: 18px; }
 .registration-aside li { margin-bottom: 14px; color: var(--muted); line-height: 1.55; }
 .toast { position: fixed; right: 22px; bottom: 22px; padding: 14px 17px; border-radius: 14px; color: #fff; background: #2d2142; box-shadow: var(--shadow); font-size: 13px; transform: translateY(80px); opacity: 0; transition: .25s ease; }
 .toast.show { transform: translateY(0); opacity: 1; }
