@@ -19,6 +19,7 @@ export function SiteHeader({ cta = "Register Now", ctaHref = "/registration" }: 
         <Link href="/#past">Past Conferences</Link>
         <Link href="/#eb">Executive Board</Link>
         <Link href="/#resources">Resources</Link>
+        <Link href="/dashboard">Check Status</Link>
         <Link href="/#faq">FAQs</Link>
       </nav>
       <Link className="nav-cta" href={ctaHref}>
