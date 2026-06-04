@@ -25,6 +25,15 @@ RESEND_API_KEY="..."
 FROM_EMAIL="Invictus MUN <noreply@yourdomain.com>"
 EMAIL_TEST_MODE="false"
 TEST_EMAIL_TO=""
+NEXT_PUBLIC_SITE_URL="https://invictusmun.com"
+NEXT_PUBLIC_RAZORPAY_KEY_ID="..."
+RAZORPAY_KEY_ID="..."
+RAZORPAY_KEY_SECRET="..."
+RAZORPAY_WEBHOOK_SECRET="..."
+WHATSAPP_ACCESS_TOKEN="..."
+WHATSAPP_PHONE_NUMBER_ID="..."
+WHATSAPP_TEMPLATE_NAME="..."
+WHATSAPP_TEMPLATE_LANGUAGE="en_US"
 ```
 
 3. Create the PostgreSQL tables:
@@ -55,6 +64,15 @@ Open `http://127.0.0.1:4173`.
 - `/delegate/login` lets delegates open a private dashboard with registered email + phone.
 - `/verify/pass/INV-2026-001` verifies QR passes and supports limited staff check-in through `CHECKIN_PASSCODE`.
 - `/executive-board` displays published Executive Board profiles managed from the admin portal.
+- `/api/payments/razorpay/order` and `/api/payments/razorpay/verify` support Razorpay checkout when Razorpay keys are configured.
+- Admin portal includes admin user creation, analytics, certificate issuing, award assignment, and WhatsApp test tools.
+- `/eb/login` and `/eb/dashboard` provide a limited EB workspace for EB profiles with email + phone saved by admin.
+
+## External Services
+
+Razorpay requires `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `NEXT_PUBLIC_RAZORPAY_KEY_ID`. The public status dashboard shows a Razorpay payment button for unpaid registrations and verifies payment signatures server-side.
+
+WhatsApp automation uses Meta WhatsApp Cloud API. Set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, and an approved `WHATSAPP_TEMPLATE_NAME`. If these are missing, WhatsApp sends are safely skipped/logged.
 
 ## Resend Test Email Mode
 

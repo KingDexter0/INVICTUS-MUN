@@ -18,9 +18,11 @@ export default async function DelegateDashboardPage() {
     redirect("/delegate/login");
   }
 
-  const [announcements, resources] = await Promise.all([
+  const [announcements, resources, certificates, awards] = await Promise.all([
     prisma.announcement.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.resource.findMany({ orderBy: { createdAt: "desc" } })
+    prisma.resource.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.certificate.findMany({ where: { registrationId: registration.id }, orderBy: { issuedAt: "desc" } }),
+    prisma.award.findMany({ where: { registrationId: registration.id }, orderBy: { createdAt: "desc" } })
   ]);
 
   const hasAllotment = registration.allotmentStatus === "Allotted";
@@ -115,6 +117,28 @@ export default async function DelegateDashboardPage() {
                     <span>{resource.category} - {resource.accessLevel}</span>
                   </a>
                 )) : <p className="empty-copy">No resources have been released for your current status yet.</p>}
+              </div>
+            </article>
+            <article className="dashboard-card">
+              <h2>Certificates</h2>
+              <div className="resource-list compact">
+                {certificates.length ? certificates.map((certificate) => (
+                  <a key={certificate.id} href={`/certificates/${certificate.certificateNo}`}>
+                    <strong>{certificate.title}</strong>
+                    <span>{certificate.certificateNo}</span>
+                  </a>
+                )) : <p className="empty-copy">No certificates issued yet.</p>}
+              </div>
+            </article>
+            <article className="dashboard-card">
+              <h2>Awards</h2>
+              <div className="resource-list compact">
+                {awards.length ? awards.map((award) => (
+                  <a key={award.id} href="#">
+                    <strong>{award.title}</strong>
+                    <span>{award.category}{award.position ? ` - ${award.position}` : ""}</span>
+                  </a>
+                )) : <p className="empty-copy">No awards assigned yet.</p>}
               </div>
             </article>
           </div>

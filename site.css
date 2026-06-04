@@ -141,6 +141,12 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
 .testimonial-head small, .testimonial-card > small { color: var(--purple); font-weight: 800; }
 .testimonial-card p { color: var(--muted); line-height: 1.7; }
 .portrait.small { width: 54px; height: 54px; font-size: 16px; border-radius: 16px; }
+.certificate-page { display: grid; place-items: center; min-height: 70vh; background: #fbf9ff; }
+.certificate-card { width: min(920px, 100%); padding: clamp(34px, 7vw, 80px); border: 2px solid #dcd3ec; border-radius: 30px; background: #fff; text-align: center; box-shadow: var(--shadow); }
+.certificate-card h1 { font-size: clamp(42px, 6vw, 72px); }
+.certificate-card h2 { margin: 18px 0; color: var(--purple); font-size: clamp(36px, 5vw, 62px); }
+.certificate-card p { color: var(--muted); font-size: 18px; line-height: 1.7; }
+.certificate-card strong { display: inline-flex; margin-top: 24px; padding: 10px 14px; border-radius: 999px; background: var(--lavender); color: var(--purple); }
 .resources, .contact { display: grid; grid-template-columns: minmax(0, .9fr) minmax(320px, .65fr); gap: 40px; align-items: center; background: #fbf9ff; }
 .resource-list { display: grid; gap: 12px; }
 .resource-list a { padding: 18px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
@@ -188,6 +194,8 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
   padding: 28px; border: 1px dashed #d9d1e8; border-radius: 24px; background: #fcfbfe; color: var(--muted);
 }
 .empty-panel h2 { margin-bottom: 8px; color: var(--ink); font-size: 26px; }
+.payment-action-panel { margin-bottom: 20px; }
+.payment-action-panel .button { margin-top: 14px; }
 .empty-copy { margin: 0; color: var(--muted); line-height: 1.6; }
 .lookup-form { display: flex; gap: 12px; margin-bottom: 20px; }
 .lookup-form input, .unlock-card input {

@@ -40,12 +40,99 @@ model Registration {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
   notes                AdminNote[]
+  paymentTransactions  PaymentTransaction[]
+  certificates         Certificate[]
+  awardRecords         Award[]
+  whatsappLogs         WhatsAppLog[]
 
   @@index([email])
   @@index([phone])
   @@index([paymentStatus])
   @@index([registrationStatus])
   @@index([allotmentStatus])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("Admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+}
+
+model PaymentTransaction {
+  id             String       @id @default(cuid())
+  registrationId String
+  provider       String       @default("Razorpay")
+  orderId        String       @unique
+  paymentId      String?
+  signature      String?
+  amount         Int
+  currency       String       @default("INR")
+  status         String       @default("Created")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@index([status])
+}
+
+model Certificate {
+  id             String       @id @default(cuid())
+  registrationId String
+  title          String
+  certificateNo  String       @unique
+  issuedAt       DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+}
+
+model Award {
+  id             String       @id @default(cuid())
+  registrationId String
+  title          String
+  category       String
+  committee      String?
+  position       String?
+  createdAt      DateTime     @default(now())
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@index([committee])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  eventType String
+  path      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model WhatsAppLog {
+  id             String        @id @default(cuid())
+  registrationId String?
+  phone          String
+  trigger        String
+  status         String
+  messageId      String?
+  error          String?
+  createdAt      DateTime      @default(now())
+  registration   Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@index([registrationId])
+  @@index([trigger])
+  @@index([status])
 }
 
 model Announcement {

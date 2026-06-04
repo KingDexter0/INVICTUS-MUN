@@ -70,6 +70,24 @@ type Testimonial = {
   updatedAt: string;
 };
 
+type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AnalyticsSummary = {
+  registrations: number;
+  verifiedPayments: number;
+  checkedIn: number;
+  resources: number;
+  certificates: number;
+  awards: number;
+};
+
 const capacities: Record<string, number> = {
   UNHRC: 70,
   "Arab League": 65,
@@ -127,10 +145,14 @@ function actionSuccessMessage(label: string, name: string, emailStatus?: string)
 export function PortalClient() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passcode, setPasscode] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [ebProfiles, setEbProfiles] = useState<EBProfile[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedCommittee, setSelectedCommittee] = useState("");
@@ -150,6 +172,8 @@ export function PortalClient() {
   const [isSavingTestimonial, setIsSavingTestimonial] = useState(false);
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [isCreatingAdminUser, setIsCreatingAdminUser] = useState(false);
+  const [isSavingOps, setIsSavingOps] = useState(false);
   const [deletingResourceId, setDeletingResourceId] = useState("");
   const [deletingEbId, setDeletingEbId] = useState("");
   const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
@@ -184,8 +208,49 @@ export function PortalClient() {
       await loadResources();
       await loadEbProfiles();
       await loadTestimonials();
+      await loadAdminUsers();
+      await loadAnalytics();
     } catch {
       setMessage("Could not reach the admin session server.");
+      setMessageType("error");
+    } finally {
+      setIsUnlocking(false);
+    }
+  }
+
+  async function unlockWithAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!adminEmail.trim() || !adminPassword) {
+      setMessage("Enter admin email and password.");
+      setMessageType("error");
+      return;
+    }
+    setIsUnlocking(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/admin/user-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: adminEmail, password: adminPassword })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Invalid admin account.");
+        setMessageType("error");
+        return;
+      }
+      setIsUnlocked(true);
+      setMessage("Admin account unlocked.");
+      setMessageType("success");
+      await loadRegistrations();
+      await loadResources();
+      await loadEbProfiles();
+      await loadTestimonials();
+      await loadAdminUsers();
+      await loadAnalytics();
+    } catch {
+      setMessage("Could not reach the admin account server.");
       setMessageType("error");
     } finally {
       setIsUnlocking(false);
@@ -240,6 +305,27 @@ export function PortalClient() {
     }
   }
 
+  async function loadAdminUsers() {
+    try {
+      const response = await fetch("/api/admin/users");
+      const payload = await response.json();
+      if (!response.ok) return;
+      setAdminUsers(payload.users || []);
+    } catch {
+      setAdminUsers([]);
+    }
+  }
+
+  async function loadAnalytics() {
+    try {
+      const response = await fetch("/api/admin/analytics");
+      const payload = await response.json();
+      if (response.ok) setAnalytics(payload);
+    } catch {
+      setAnalytics(null);
+    }
+  }
+
   async function loadRegistrations() {
     setIsLoading(true);
     const params = new URLSearchParams();
@@ -273,6 +359,8 @@ export function PortalClient() {
       void loadResources();
       void loadEbProfiles();
       void loadTestimonials();
+      void loadAdminUsers();
+      void loadAnalytics();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, isUnlocked]);
@@ -624,6 +712,123 @@ export function PortalClient() {
     }
   }
 
+  async function createAdminUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setIsCreatingAdminUser(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(formData.get("name") || "").trim(),
+          email: String(formData.get("email") || "").trim(),
+          password: String(formData.get("password") || ""),
+          role: String(formData.get("role") || "Admin").trim()
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not create admin user.");
+        setMessageType("error");
+        return;
+      }
+      form.reset();
+      setMessage("Admin user created.");
+      setMessageType("success");
+      await loadAdminUsers();
+    } catch {
+      setMessage("Could not reach the admin user server.");
+      setMessageType("error");
+    } finally {
+      setIsCreatingAdminUser(false);
+    }
+  }
+
+  async function saveCertificate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setIsSavingOps(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/certificates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId: formData.get("publicId"), title: formData.get("title") })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not issue certificate.");
+        setMessageType("error");
+        return;
+      }
+      form.reset();
+      setMessage(`Certificate issued: ${payload.certificate.certificateNo}.`);
+      setMessageType("success");
+      await loadAnalytics();
+    } finally {
+      setIsSavingOps(false);
+    }
+  }
+
+  async function saveAward(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setIsSavingOps(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/awards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(formData))
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not save award.");
+        setMessageType("error");
+        return;
+      }
+      form.reset();
+      setMessage("Award saved.");
+      setMessageType("success");
+      await loadAnalytics();
+    } finally {
+      setIsSavingOps(false);
+    }
+  }
+
+  async function sendWhatsAppTest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setIsSavingOps(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/whatsapp/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: formData.get("phone") })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not run WhatsApp test.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(`WhatsApp test status: ${payload.whatsappStatus}.`);
+      setMessageType(payload.whatsappStatus === "failed" ? "error" : "success");
+    } finally {
+      setIsSavingOps(false);
+    }
+  }
+
   if (!isUnlocked) {
     return (
       <main className="portal-unlock">
@@ -633,6 +838,13 @@ export function PortalClient() {
           <input value={passcode} onChange={(event) => setPasscode(event.target.value)} type="password" placeholder="Admin passcode" autoComplete="current-password" />
           <button className="button primary" type="submit" disabled={isUnlocking}>{isUnlocking ? "Unlocking..." : "Unlock Portal"}</button>
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
+        </form>
+        <form className="registration-aside unlock-card" onSubmit={unlockWithAccount}>
+          <h2>Admin Account</h2>
+          <p>Or sign in with a full admin user account created inside the portal.</p>
+          <input value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} type="email" placeholder="Admin email" autoComplete="email" />
+          <input value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} type="password" placeholder="Admin password" autoComplete="current-password" />
+          <button className="button secondary" type="submit" disabled={isUnlocking}>{isUnlocking ? "Signing in..." : "Login with Account"}</button>
         </form>
       </main>
     );
@@ -652,6 +864,8 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => document.querySelector("#resources")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">D</span> Resources <b>{resources.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#eb-management")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">E</span> EB <b>{ebProfiles.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#testimonials")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">T</span> Testimonials <b>{testimonials.length}</b></button>
+          <button className="nav-item" type="button" onClick={() => document.querySelector("#admin-users")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">U</span> Admin Users <b>{adminUsers.length}</b></button>
+          <button className="nav-item" type="button" onClick={() => document.querySelector("#ops-tools")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">X</span> Ops Tools</button>
         </nav>
         <div className="sidebar-bottom">
           <div className="admin-card"><div className="avatar">YP</div><span><strong>Yoksh Patil</strong><small>Super Admin</small></span></div>
@@ -866,6 +1080,56 @@ export function PortalClient() {
                   </article>
                 )) : <div className="empty-state">No testimonials added yet.</div>}
               </div>
+            </section>
+          </div>
+
+          <div className="lower-grid">
+            <section className="panel resources-panel" id="admin-users">
+              <div className="panel-head"><div><p className="eyebrow">ACCESS CONTROL</p><h2>Admin Users</h2></div><span className="count-badge">{adminUsers.length}</span></div>
+              <form className="resource-manager" onSubmit={createAdminUser}>
+                <input name="name" placeholder="Admin name" required />
+                <input name="email" type="email" placeholder="Admin email" required />
+                <div className="resource-fields">
+                  <input name="password" type="password" placeholder="Password, 8+ characters" required />
+                  <select name="role" defaultValue="Admin"><option>Admin</option><option>Super Admin</option><option>Finance</option><option>Operations</option></select>
+                </div>
+                <button className="button secondary full" type="submit" disabled={isCreatingAdminUser}>{isCreatingAdminUser ? "Creating..." : "Create admin user"}</button>
+              </form>
+              <div className="resource-admin-list">
+                {adminUsers.length ? adminUsers.map((user) => (
+                  <article className="resource-admin-item" key={user.id}>
+                    <div><strong>{user.name}</strong><small>{user.email} - {user.role}</small></div>
+                  </article>
+                )) : <div className="empty-state">No admin users created yet. The passcode login still works.</div>}
+              </div>
+            </section>
+            <section className="panel resources-panel" id="ops-tools">
+              <div className="panel-head"><div><p className="eyebrow">FINAL MODULES</p><h2>Awards, Certificates, Analytics, WhatsApp</h2></div></div>
+              <div className="stats-grid mini-stats">
+                <article className="stat-card"><p>Registrations</p><h3>{analytics?.registrations ?? "-"}</h3></article>
+                <article className="stat-card"><p>Checked in</p><h3>{analytics?.checkedIn ?? "-"}</h3></article>
+                <article className="stat-card"><p>Certificates</p><h3>{analytics?.certificates ?? "-"}</h3></article>
+                <article className="stat-card"><p>Awards</p><h3>{analytics?.awards ?? "-"}</h3></article>
+              </div>
+              <form className="resource-manager" onSubmit={saveCertificate}>
+                <h3>Issue certificate</h3>
+                <input name="publicId" placeholder="Delegate ID, e.g. INV-2026-001" required />
+                <input name="title" placeholder="Certificate title" defaultValue="Certificate of Participation" required />
+                <button className="button secondary full" disabled={isSavingOps}>Issue certificate</button>
+              </form>
+              <form className="resource-manager" onSubmit={saveAward}>
+                <h3>Add award</h3>
+                <input name="publicId" placeholder="Delegate ID" required />
+                <input name="title" placeholder="Award title" required />
+                <div className="resource-fields"><input name="category" placeholder="Category" defaultValue="Committee Award" /><input name="position" placeholder="Position optional" /></div>
+                <button className="button secondary full" disabled={isSavingOps}>Save award</button>
+              </form>
+              <form className="resource-manager" onSubmit={sendWhatsAppTest}>
+                <h3>WhatsApp test</h3>
+                <input name="phone" placeholder="Phone with country code" required />
+                <button className="button secondary full" disabled={isSavingOps}>Send WhatsApp Test</button>
+                <p className="empty-copy">Requires WhatsApp Cloud API env vars and approved template.</p>
+              </form>
             </section>
           </div>
         </section>
