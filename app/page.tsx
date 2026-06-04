@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "./components/SiteHeader";
+import { prisma } from "../lib/prisma";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const testimonials = await prisma.testimonial.findMany({
+    where: { isPublished: true },
+    orderBy: { createdAt: "desc" },
+    take: 6
+  });
+
   return (
     <>
       <SiteHeader />
@@ -105,12 +114,33 @@ export default function HomePage() {
         </section>
 
         <section className="section" id="eb">
-          <div className="section-head"><div><p className="eyebrow">LEADERSHIP</p><h2>Executive Board and Secretariat.</h2></div><Link href="/registration">Join the team</Link></div>
+          <div className="section-head"><div><p className="eyebrow">LEADERSHIP</p><h2>Executive Board and Secretariat.</h2></div><Link href="/executive-board">View Executive Board</Link></div>
           <div className="team-grid">
             <article><div className="portrait">SG</div><h3>Secretary-General</h3><p>Conference strategy and delegate experience.</p></article>
             <article><div className="portrait">DG</div><h3>Director-General</h3><p>Operations, logistics, and event-day execution.</p></article>
             <article><div className="portrait">EB</div><h3>Executive Board</h3><p>Committee moderation, guides, and debate procedure.</p></article>
             <article><div className="portrait">TO</div><h3>Technology Operations</h3><p>Registration support, delegate dashboards, and event data workflows.</p></article>
+          </div>
+        </section>
+
+        <section className="section testimonials" id="testimonials">
+          <div className="section-head"><div><p className="eyebrow">TESTIMONIALS</p><h2>What delegates say about Invictus.</h2></div></div>
+          <div className="testimonial-grid">
+            {testimonials.length ? testimonials.map((testimonial) => (
+              <article className="testimonial-card" key={testimonial.id}>
+                <div className="testimonial-head">
+                  {testimonial.photoUrl ? <img src={testimonial.photoUrl} alt={testimonial.name} /> : <span className="portrait small">{testimonial.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>}
+                  <span><strong>{testimonial.name}</strong><small>{testimonial.institution}</small></span>
+                </div>
+                <p>{testimonial.quote}</p>
+                {testimonial.edition ? <small>{testimonial.edition}</small> : null}
+              </article>
+            )) : (
+              <div className="empty-panel">
+                <h2>Testimonials coming soon</h2>
+                <p>Published delegate feedback will appear here after the organizing team adds it.</p>
+              </div>
+            )}
           </div>
         </section>
 

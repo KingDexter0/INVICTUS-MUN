@@ -254,6 +254,10 @@ dialog input:focus, dialog select:focus, dialog textarea:focus { border-color: #
 .resource-admin-item small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 .resource-admin-item p { margin: 7px 0 5px; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .resource-admin-item a { color: var(--purple); font-size: 10px; font-weight: 700; }
+.admin-list-with-photo { display: flex; gap: 12px; align-items: flex-start; }
+.admin-list-with-photo img { width: 48px; height: 48px; object-fit: cover; border-radius: 13px; border: 1px solid var(--line); }
+.toggle-row { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 800; }
+.toggle-row input { width: auto; margin: 0; }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 18px;
   background: rgba(28, 22, 42, .42); backdrop-filter: blur(3px);

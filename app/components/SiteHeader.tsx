@@ -17,7 +17,7 @@ export function SiteHeader({ cta = "Register Now", ctaHref = "/registration" }: 
         <Link href="/#about">About</Link>
         <Link href="/committees">Committees</Link>
         <Link href="/#past">Past Conferences</Link>
-        <Link href="/#eb">Executive Board</Link>
+        <Link href="/executive-board">Executive Board</Link>
         <Link href="/#resources">Resources</Link>
         <Link href="/dashboard">Check Status</Link>
         <Link href="/#faq">FAQs</Link>
@@ -45,6 +45,7 @@ export function SiteFooter() {
       <nav>
         <Link href="/#about">About</Link>
         <Link href="/committees">Committees</Link>
+        <Link href="/executive-board">Executive Board</Link>
         <Link href="/registration">Registration</Link>
         <Link href="/dashboard">Status</Link>
         <Link href="/#policies">Policies</Link>

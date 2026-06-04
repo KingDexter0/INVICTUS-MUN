@@ -19,7 +19,12 @@ CLOUDINARY_CLOUD_NAME="..."
 CLOUDINARY_API_KEY="..."
 CLOUDINARY_API_SECRET="..."
 ADMIN_PASSCODE="..."
+CHECKIN_PASSCODE="..."
 ADMIN_SESSION_SECRET="..."
+RESEND_API_KEY="..."
+FROM_EMAIL="Invictus MUN <noreply@yourdomain.com>"
+EMAIL_TEST_MODE="false"
+TEST_EMAIL_TO=""
 ```
 
 3. Create the PostgreSQL tables:
@@ -47,5 +52,20 @@ Open `http://127.0.0.1:4173`.
 - `/registration` creates a database registration and uploads payment proof to Cloudinary when a file is attached.
 - `/dashboard?id=INV-2026-001` shows delegate status, allotment, announcements, and QR preview after allotment release.
 - `/portal` requires `ADMIN_PASSCODE`, then lets admins verify/reject payment, approve registrations, release allotments, save notes, publish announcements, and export CSV.
+- `/delegate/login` lets delegates open a private dashboard with registered email + phone.
+- `/verify/pass/INV-2026-001` verifies QR passes and supports limited staff check-in through `CHECKIN_PASSCODE`.
+- `/executive-board` displays published Executive Board profiles managed from the admin portal.
+
+## Resend Test Email Mode
+
+For safe email testing:
+
+```env
+EMAIL_TEST_MODE="true"
+TEST_EMAIL_TO="your-test-inbox@example.com"
+FROM_EMAIL="Invictus MUN <onboarding@resend.dev>"
+```
+
+When test mode is on, all automated emails go only to `TEST_EMAIL_TO`. The email body includes the original intended recipient and trigger name. The admin portal has a **Send Test Email** button to verify Resend setup.
 
 The active website is the Next.js App Router project in `app/`, with Prisma database access in `lib/` and `prisma/`.

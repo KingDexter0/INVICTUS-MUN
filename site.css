@@ -129,6 +129,18 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
 .feature-list span { padding: 9px 12px; border-radius: 999px; background: var(--lavender); color: var(--purple-dark); font-size: 13px; font-weight: 800; }
 .portrait { height: 190px; border-radius: 22px; display: grid; place-items: center; color: var(--purple); background: radial-gradient(circle at top, #fff, #eee7fb); font-family: "Playfair Display", serif; font-size: 48px; }
 .team-grid h3 { margin: 18px 0 8px; }
+.eb-directory { display: grid; gap: 36px; }
+.eb-card img, .testimonial-head img { width: 82px; height: 82px; object-fit: cover; border-radius: 22px; border: 1px solid var(--line); }
+.eb-card strong { color: var(--purple); }
+.eb-card p { color: var(--muted); line-height: 1.6; }
+.eb-links { display: flex; gap: 12px; margin-top: 14px; color: var(--purple); font-size: 13px; font-weight: 800; }
+.testimonial-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.testimonial-card { padding: 24px; border: 1px solid var(--line); border-radius: 24px; background: #fff; box-shadow: 0 12px 34px rgba(45,31,76,.045); }
+.testimonial-head { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; }
+.testimonial-head strong, .testimonial-head small { display: block; }
+.testimonial-head small, .testimonial-card > small { color: var(--purple); font-weight: 800; }
+.testimonial-card p { color: var(--muted); line-height: 1.7; }
+.portrait.small { width: 54px; height: 54px; font-size: 16px; border-radius: 16px; }
 .resources, .contact { display: grid; grid-template-columns: minmax(0, .9fr) minmax(320px, .65fr); gap: 40px; align-items: center; background: #fbf9ff; }
 .resource-list { display: grid; gap: 12px; }
 .resource-list a { padding: 18px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
@@ -236,7 +248,7 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
 
 @media (max-width: 1050px) {
   .hero, .split, .split.reverse, .resources, .contact, .registration-layout, .partnerships { grid-template-columns: 1fr; }
-  .values-grid, .committee-grid, .process-grid, .team-grid, .credibility-grid, .ops-grid, .policy-grid, .committee-directory, .delegate-status-grid, .dashboard-detail-grid { grid-template-columns: repeat(2, 1fr); }
+  .values-grid, .committee-grid, .process-grid, .team-grid, .credibility-grid, .ops-grid, .policy-grid, .committee-directory, .delegate-status-grid, .dashboard-detail-grid, .testimonial-grid { grid-template-columns: repeat(2, 1fr); }
   .verify-layout { grid-template-columns: 1fr; }
   .registration-aside { position: static; }
 }
@@ -256,7 +268,7 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
   .floating-card { display: none; }
   .hero-proof, .section-head, .site-footer { display: block; }
   .hero-proof span { margin-bottom: 16px; }
-  .stats-strip, .values-grid, .committee-grid, .process-grid, .team-grid, .credibility-grid, .ops-grid, .policy-grid, .partner-row, .committee-directory, .registration-form fieldset, .delegate-status-grid, .dashboard-detail-grid, .dashboard-card dl div { grid-template-columns: 1fr; }
+  .stats-strip, .values-grid, .committee-grid, .process-grid, .team-grid, .credibility-grid, .ops-grid, .policy-grid, .partner-row, .committee-directory, .registration-form fieldset, .delegate-status-grid, .dashboard-detail-grid, .dashboard-card dl div, .testimonial-grid { grid-template-columns: 1fr; }
   .lookup-form { display: block; }
   .lookup-form .button { margin-top: 10px; width: 100%; }
   .section { padding-top: 56px; padding-bottom: 56px; }

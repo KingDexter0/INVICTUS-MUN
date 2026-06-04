@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 type EmailStatus = {
-  status: "sent" | "failed" | "skipped";
+  status: "sent" | "sent-test" | "failed" | "skipped";
 };
 
 type RegistrationEmailInput = {
@@ -28,7 +28,28 @@ function siteUrl() {
 }
 
 function configured() {
+  if (isTestMode()) return Boolean(process.env.RESEND_API_KEY && process.env.TEST_EMAIL_TO);
   return Boolean(process.env.RESEND_API_KEY && process.env.FROM_EMAIL);
+}
+
+function isTestMode() {
+  return process.env.EMAIL_TEST_MODE === "true";
+}
+
+function fromEmail() {
+  if (isTestMode()) return process.env.FROM_EMAIL || "Invictus MUN <onboarding@resend.dev>";
+  return process.env.FROM_EMAIL as string;
+}
+
+function testModeNotice(to: string, trigger: string) {
+  if (!isTestMode()) return "";
+  return `
+    <div style="margin:0 0 18px;padding:12px;border:1px solid #e9d8a6;border-radius:12px;background:#fff8e6;color:#6f4f00">
+      <strong>Resend test mode</strong>
+      <p style="margin:8px 0 0">Original intended recipient: ${to}</p>
+      <p style="margin:6px 0 0">Trigger: ${trigger}</p>
+    </div>
+  `;
 }
 
 function baseTemplate({ heading, name, publicId, action, dashboardPath = "/dashboard", details = [] }: RegistrationEmailInput) {
@@ -41,6 +62,7 @@ function baseTemplate({ heading, name, publicId, action, dashboardPath = "/dashb
   return `
     <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#181424">
       <div style="max-width:620px;margin:0 auto;padding:28px">
+        ${testModeNotice("", heading)}
         <div style="border-left:5px solid #6d43c8;padding-left:16px;margin-bottom:24px">
           <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
           <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">${heading}</h1>
@@ -58,7 +80,7 @@ function baseTemplate({ heading, name, publicId, action, dashboardPath = "/dashb
   `;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<EmailStatus> {
+async function sendEmail(to: string, subject: string, html: string, trigger = subject): Promise<EmailStatus> {
   if (!configured()) {
     console.warn("Email skipped: Resend environment variables are not configured.");
     return { status: "skipped" };
@@ -66,19 +88,21 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Ema
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
+    const actualTo = isTestMode() ? process.env.TEST_EMAIL_TO as string : to;
+    const finalHtml = isTestMode() ? html.replace(testModeNotice("", trigger), testModeNotice(to, trigger)) : html;
     const { error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL as string,
-      to,
+      from: fromEmail(),
+      to: actualTo,
       subject,
-      html
+      html: finalHtml
     });
 
     if (error) {
-      console.error("Email failed", { to, subject, message: error.message });
+      console.error("Email failed", { to: actualTo, intendedTo: to, subject, message: error.message });
       return { status: "failed" };
     }
 
-    return { status: "sent" };
+    return { status: isTestMode() ? "sent-test" : "sent" };
   } catch (error) {
     console.error("Email failed", { to, subject, message: error instanceof Error ? error.message : "Unknown error" });
     return { status: "failed" };
@@ -86,7 +110,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Ema
 }
 
 export async function sendRegistrationEmail(input: RegistrationEmailInput) {
-  return sendEmail(input.to, `Invictus MUN: ${input.heading}`, baseTemplate(input));
+  return sendEmail(input.to, `Invictus MUN: ${input.heading}`, baseTemplate(input), input.heading);
 }
 
 export async function sendResourceEmail(input: ResourceEmailInput) {
@@ -97,6 +121,7 @@ export async function sendResourceEmail(input: ResourceEmailInput) {
     `
       <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#181424">
         <div style="max-width:620px;margin:0 auto;padding:28px">
+          ${testModeNotice("", "Resource uploaded")}
           <div style="border-left:5px solid #6d43c8;padding-left:16px;margin-bottom:24px">
             <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
             <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">New resource uploaded</h1>
@@ -111,6 +136,27 @@ export async function sendResourceEmail(input: ResourceEmailInput) {
           <p style="margin-top:24px;color:#706b7e;font-size:13px;line-height:1.6">This is an automated update from Invictus MUN.</p>
         </div>
       </div>
+    `,
+    "Resource uploaded"
+  );
+}
+
+export async function sendAdminTestEmail(to: string) {
+  return sendEmail(
+    to,
+    "Invictus MUN test email",
     `
+      <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#181424">
+        <div style="max-width:620px;margin:0 auto;padding:28px">
+          ${testModeNotice("", "Admin test email")}
+          <div style="border-left:5px solid #6d43c8;padding-left:16px;margin-bottom:24px">
+            <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
+            <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">Email test successful</h1>
+          </div>
+          <p style="font-size:16px;line-height:1.7">This confirms Resend is connected to the Invictus MUN admin portal.</p>
+        </div>
+      </div>
+    `,
+    "Admin test email"
   );
 }

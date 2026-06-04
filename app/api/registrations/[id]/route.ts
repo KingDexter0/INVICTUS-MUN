@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       include: { notes: { orderBy: { createdAt: "desc" } } }
     });
 
-    let emailStatus: "sent" | "failed" | "skipped" | undefined;
+    let emailStatus: "sent" | "sent-test" | "failed" | "skipped" | undefined;
     if (body.paymentStatus === "Verified" && !body.registrationStatus && !body.allotmentStatus) {
       emailStatus = (await sendRegistrationEmail({
         to: registration.email,

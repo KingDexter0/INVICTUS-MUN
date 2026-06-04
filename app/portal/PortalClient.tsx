@@ -42,6 +42,34 @@ type Resource = {
   updatedAt: string;
 };
 
+type EBProfile = {
+  id: string;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+  photoUrl?: string | null;
+  photoPublicId?: string | null;
+  committee: string;
+  position: string;
+  bio: string;
+  instagram?: string | null;
+  linkedin?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type Testimonial = {
+  id: string;
+  name: string;
+  institution: string;
+  quote: string;
+  edition?: string | null;
+  photoUrl?: string | null;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const capacities: Record<string, number> = {
   UNHRC: 70,
   "Arab League": 65,
@@ -90,6 +118,7 @@ function actionSuccessMessage(label: string, name: string, emailStatus?: string)
   };
   const action = labels[label] || label;
   if (emailStatus === "sent") return `${action} for ${name}, and email sent.`;
+  if (emailStatus === "sent-test") return `${action} for ${name}, and test email sent.`;
   if (emailStatus === "failed") return `${action} for ${name}, but email failed.`;
   if (emailStatus === "skipped") return `${action} for ${name}. Email skipped because Resend is not configured.`;
   return `${action} saved for ${name}.`;
@@ -100,6 +129,8 @@ export function PortalClient() {
   const [passcode, setPasscode] = useState("");
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [ebProfiles, setEbProfiles] = useState<EBProfile[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedCommittee, setSelectedCommittee] = useState("");
@@ -114,7 +145,14 @@ export function PortalClient() {
   const [activeAction, setActiveAction] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploadingResource, setIsUploadingResource] = useState(false);
+  const [isSavingEb, setIsSavingEb] = useState(false);
+  const [editingEb, setEditingEb] = useState<EBProfile | null>(null);
+  const [isSavingTestimonial, setIsSavingTestimonial] = useState(false);
+  const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
   const [deletingResourceId, setDeletingResourceId] = useState("");
+  const [deletingEbId, setDeletingEbId] = useState("");
+  const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
   const [announcement, setAnnouncement] = useState({ title: "", audience: "All registered delegates", message: "" });
 
   async function unlock(event: FormEvent<HTMLFormElement>) {
@@ -144,6 +182,8 @@ export function PortalClient() {
       setMessageType("success");
       await loadRegistrations();
       await loadResources();
+      await loadEbProfiles();
+      await loadTestimonials();
     } catch {
       setMessage("Could not reach the admin session server.");
       setMessageType("error");
@@ -164,6 +204,38 @@ export function PortalClient() {
       setResources(payload.resources || []);
     } catch {
       setMessage("Could not load resources.");
+      setMessageType("error");
+    }
+  }
+
+  async function loadEbProfiles() {
+    try {
+      const response = await fetch("/api/eb-profiles");
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage(payload.error || "Could not load EB profiles.");
+        setMessageType("error");
+        return;
+      }
+      setEbProfiles(payload.profiles || []);
+    } catch {
+      setMessage("Could not load EB profiles.");
+      setMessageType("error");
+    }
+  }
+
+  async function loadTestimonials() {
+    try {
+      const response = await fetch("/api/testimonials?all=true");
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage(payload.error || "Could not load testimonials.");
+        setMessageType("error");
+        return;
+      }
+      setTestimonials(payload.testimonials || []);
+    } catch {
+      setMessage("Could not load testimonials.");
       setMessageType("error");
     }
   }
@@ -199,6 +271,8 @@ export function PortalClient() {
     if (isUnlocked) {
       void loadRegistrations();
       void loadResources();
+      void loadEbProfiles();
+      void loadTestimonials();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, isUnlocked]);
@@ -384,6 +458,172 @@ export function PortalClient() {
     }
   }
 
+  async function sendTestEmail() {
+    setIsSendingTestEmail(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/admin/test-email", { method: "POST" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not send test email.");
+        setMessageType("error");
+        return;
+      }
+      const label = payload.emailStatus === "sent-test" ? "test email sent to TEST_EMAIL_TO" : `email status: ${payload.emailStatus}`;
+      setMessage(`Resend test complete: ${label}.`);
+      setMessageType("success");
+    } catch {
+      setMessage("Could not reach the test email server.");
+      setMessageType("error");
+    } finally {
+      setIsSendingTestEmail(false);
+    }
+  }
+
+  async function saveEbProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setIsSavingEb(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(editingEb ? `/api/eb-profiles/${editingEb.id}` : "/api/eb-profiles", {
+        method: editingEb ? "PATCH" : "POST",
+        body: formData
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not save EB profile.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(editingEb ? "EB profile updated." : "EB profile created.");
+      setMessageType("success");
+      setEditingEb(null);
+      form.reset();
+      await loadEbProfiles();
+    } catch {
+      setMessage("Could not reach the EB profile server.");
+      setMessageType("error");
+    } finally {
+      setIsSavingEb(false);
+    }
+  }
+
+  async function deleteEbProfile(profile: EBProfile) {
+    setDeletingEbId(profile.id);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(`/api/eb-profiles/${profile.id}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not delete EB profile.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(`Deleted EB profile: ${profile.fullName}.`);
+      setMessageType("success");
+      if (editingEb?.id === profile.id) setEditingEb(null);
+      await loadEbProfiles();
+    } catch {
+      setMessage("Could not reach the EB delete server.");
+      setMessageType("error");
+    } finally {
+      setDeletingEbId("");
+    }
+  }
+
+  async function saveTestimonial(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const body = {
+      name: String(formData.get("name") || "").trim(),
+      institution: String(formData.get("institution") || "").trim(),
+      quote: String(formData.get("quote") || "").trim(),
+      edition: String(formData.get("edition") || "").trim(),
+      photoUrl: String(formData.get("photoUrl") || "").trim(),
+      isPublished: formData.get("isPublished") === "on"
+    };
+    setIsSavingTestimonial(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(editingTestimonial ? `/api/testimonials/${editingTestimonial.id}` : "/api/testimonials", {
+        method: editingTestimonial ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not save testimonial.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(editingTestimonial ? "Testimonial updated." : "Testimonial created.");
+      setMessageType("success");
+      setEditingTestimonial(null);
+      form.reset();
+      await loadTestimonials();
+    } catch {
+      setMessage("Could not reach the testimonial server.");
+      setMessageType("error");
+    } finally {
+      setIsSavingTestimonial(false);
+    }
+  }
+
+  async function patchTestimonial(testimonial: Testimonial, patch: Partial<Testimonial>) {
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(`/api/testimonials/${testimonial.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not update testimonial.");
+        setMessageType("error");
+        return;
+      }
+      setMessage("Testimonial visibility updated.");
+      setMessageType("success");
+      await loadTestimonials();
+    } catch {
+      setMessage("Could not reach the testimonial update server.");
+      setMessageType("error");
+    }
+  }
+
+  async function deleteTestimonial(testimonial: Testimonial) {
+    setDeletingTestimonialId(testimonial.id);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(`/api/testimonials/${testimonial.id}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not delete testimonial.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(`Deleted testimonial: ${testimonial.name}.`);
+      setMessageType("success");
+      if (editingTestimonial?.id === testimonial.id) setEditingTestimonial(null);
+      await loadTestimonials();
+    } catch {
+      setMessage("Could not reach the testimonial delete server.");
+      setMessageType("error");
+    } finally {
+      setDeletingTestimonialId("");
+    }
+  }
+
   if (!isUnlocked) {
     return (
       <main className="portal-unlock">
@@ -410,6 +650,8 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("payments")}><span className="nav-icon">P</span> Payments <b>{stats.needsPayment}</b></button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("allotments")}><span className="nav-icon">A</span> Allotments <b>{stats.needsAllotment}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#resources")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">D</span> Resources <b>{resources.length}</b></button>
+          <button className="nav-item" type="button" onClick={() => document.querySelector("#eb-management")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">E</span> EB <b>{ebProfiles.length}</b></button>
+          <button className="nav-item" type="button" onClick={() => document.querySelector("#testimonials")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">T</span> Testimonials <b>{testimonials.length}</b></button>
         </nav>
         <div className="sidebar-bottom">
           <div className="admin-card"><div className="avatar">YP</div><span><strong>Yoksh Patil</strong><small>Super Admin</small></span></div>
@@ -426,7 +668,7 @@ export function PortalClient() {
         <section className="content" id="overview">
           <div className="page-heading">
             <div><p className="eyebrow">ADMIN PORTAL</p><h1>Good evening, Yoksh.</h1><p>Here is the live conference workspace.</p></div>
-            <div className="heading-actions"><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
+            <div className="heading-actions"><button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
           </div>
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
 
@@ -548,6 +790,81 @@ export function PortalClient() {
                     </button>
                   </article>
                 )) : <div className="empty-state">No resources uploaded yet.</div>}
+              </div>
+            </section>
+          </div>
+
+          <div className="lower-grid">
+            <section className="panel resources-panel" id="eb-management">
+              <div className="panel-head"><div><p className="eyebrow">PUBLIC LEADERSHIP</p><h2>Executive Board</h2></div><span className="count-badge">{ebProfiles.length}</span></div>
+              <form className="resource-manager" onSubmit={saveEbProfile}>
+                <input name="fullName" placeholder="Full name" defaultValue={editingEb?.fullName || ""} required />
+                <div className="resource-fields">
+                  <input name="committee" placeholder="Committee" defaultValue={editingEb?.committee || ""} required />
+                  <input name="position" placeholder="Position" defaultValue={editingEb?.position || ""} required />
+                </div>
+                <textarea name="bio" placeholder="Short bio" defaultValue={editingEb?.bio || ""} required />
+                <div className="resource-fields">
+                  <input name="email" placeholder="Email optional" defaultValue={editingEb?.email || ""} />
+                  <input name="phone" placeholder="Phone optional" defaultValue={editingEb?.phone || ""} />
+                </div>
+                <div className="resource-fields">
+                  <input name="instagram" placeholder="Instagram URL optional" defaultValue={editingEb?.instagram || ""} />
+                  <input name="linkedin" placeholder="LinkedIn URL optional" defaultValue={editingEb?.linkedin || ""} />
+                </div>
+                <input name="photo" type="file" accept="image/*" />
+                <div className="dialog-actions action-wrap">
+                  <button className="button secondary full" type="submit" disabled={isSavingEb}>{isSavingEb ? "Saving..." : editingEb ? "Update EB profile" : "Create EB profile"}</button>
+                  {editingEb ? <button className="button ghost" type="button" onClick={() => setEditingEb(null)}>Cancel edit</button> : null}
+                </div>
+              </form>
+              <div className="resource-admin-list">
+                {ebProfiles.length ? ebProfiles.map((profile) => (
+                  <article className="resource-admin-item" key={profile.id}>
+                    <div className="admin-list-with-photo">
+                      {profile.photoUrl ? <img src={profile.photoUrl} alt={profile.fullName} /> : <span className="avatar purple">{initials(profile.fullName)}</span>}
+                      <span><strong>{profile.fullName}</strong><small>{profile.committee} - {profile.position}</small><p>{profile.bio}</p></span>
+                    </div>
+                    <div className="dialog-actions action-wrap">
+                      <button className="row-action" type="button" onClick={() => setEditingEb(profile)}>Edit</button>
+                      <button className="row-action" type="button" disabled={deletingEbId === profile.id} onClick={() => deleteEbProfile(profile)}>{deletingEbId === profile.id ? "Deleting..." : "Delete"}</button>
+                    </div>
+                  </article>
+                )) : <div className="empty-state">No EB profiles added yet.</div>}
+              </div>
+            </section>
+
+            <section className="panel resources-panel" id="testimonials">
+              <div className="panel-head"><div><p className="eyebrow">PUBLIC FEEDBACK</p><h2>Testimonials</h2></div><span className="count-badge">{testimonials.length}</span></div>
+              <form className="resource-manager" onSubmit={saveTestimonial}>
+                <input name="name" placeholder="Name" defaultValue={editingTestimonial?.name || ""} required />
+                <input name="institution" placeholder="Institution" defaultValue={editingTestimonial?.institution || ""} required />
+                <textarea name="quote" placeholder="Delegate quote" defaultValue={editingTestimonial?.quote || ""} required />
+                <div className="resource-fields">
+                  <input name="edition" placeholder="Edition optional" defaultValue={editingTestimonial?.edition || ""} />
+                  <input name="photoUrl" placeholder="Photo URL optional" defaultValue={editingTestimonial?.photoUrl || ""} />
+                </div>
+                <label className="toggle-row"><input name="isPublished" type="checkbox" defaultChecked={editingTestimonial?.isPublished ?? true} /> Published on homepage</label>
+                <div className="dialog-actions action-wrap">
+                  <button className="button secondary full" type="submit" disabled={isSavingTestimonial}>{isSavingTestimonial ? "Saving..." : editingTestimonial ? "Update testimonial" : "Create testimonial"}</button>
+                  {editingTestimonial ? <button className="button ghost" type="button" onClick={() => setEditingTestimonial(null)}>Cancel edit</button> : null}
+                </div>
+              </form>
+              <div className="resource-admin-list">
+                {testimonials.length ? testimonials.map((testimonial) => (
+                  <article className="resource-admin-item" key={testimonial.id}>
+                    <div>
+                      <strong>{testimonial.name}</strong>
+                      <small>{testimonial.institution} - {testimonial.isPublished ? "Published" : "Hidden"}</small>
+                      <p>{testimonial.quote}</p>
+                    </div>
+                    <div className="dialog-actions action-wrap">
+                      <button className="row-action" type="button" onClick={() => setEditingTestimonial(testimonial)}>Edit</button>
+                      <button className="row-action" type="button" onClick={() => patchTestimonial(testimonial, { isPublished: !testimonial.isPublished })}>{testimonial.isPublished ? "Unpublish" : "Publish"}</button>
+                      <button className="row-action" type="button" disabled={deletingTestimonialId === testimonial.id} onClick={() => deleteTestimonial(testimonial)}>{deletingTestimonialId === testimonial.id ? "Deleting..." : "Delete"}</button>
+                    </div>
+                  </article>
+                )) : <div className="empty-state">No testimonials added yet.</div>}
               </div>
             </section>
           </div>
