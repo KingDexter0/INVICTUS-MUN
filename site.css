@@ -208,6 +208,7 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
     #fff;
   background-size: 16px 16px; border: 1px solid var(--line); font-size: 30px; font-weight: 800;
 }
+.qr-code-image { width: 132px; height: 132px; margin-bottom: 18px; display: block; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 12px 28px rgba(45,31,76,.08); }
 .qr-box.locked { color: var(--muted); background: var(--soft); }
 .qr-link { display: block; }
 .resource-list.compact a { padding: 14px; }

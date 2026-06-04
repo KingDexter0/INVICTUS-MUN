@@ -565,7 +565,7 @@ export function PortalClient() {
               <div><strong>Institution</strong><span>{active.institution || "-"}</span></div>
               <div><strong>Preference 1</strong><span>{active.committee1} / {active.portfolio1 || "No portfolio"}</span></div>
               <div><strong>Payment proof</strong><span>{active.paymentProofUrl ? <a href={active.paymentProofUrl} target="_blank">Open proof</a> : "Not uploaded"}</span></div>
-              <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><b>{active.publicId.slice(-3)}</b></div>
+              <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
             </div>
             <div className="allotment-editor">
               <label>Allotted committee<select value={committee} onChange={(event) => setCommittee(event.target.value)}><option value="">Select committee</option>{Object.keys(capacities).map((item) => <option key={item}>{item}</option>)}</select></label>

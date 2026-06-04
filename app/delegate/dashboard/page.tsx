@@ -85,7 +85,7 @@ export default async function DelegateDashboardPage() {
               <div className="qr-pass">
                 {hasAllotment ? (
                   <Link className="qr-link" href={`/verify/pass/${registration.publicId}`}>
-                    <div className="qr-box">{registration.publicId.slice(-3)}</div>
+                    <img className="qr-code-image" src={`/api/qr/${registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
                     <strong>{registration.name}</strong>
                     <span>{registration.allottedCommittee} - {registration.allottedPortfolio}</span>
                     <small>/verify/pass/{registration.publicId}</small>
@@ -124,4 +124,3 @@ export default async function DelegateDashboardPage() {
     </>
   );
 }
-

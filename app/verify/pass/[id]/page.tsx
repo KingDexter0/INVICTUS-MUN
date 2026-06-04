@@ -43,7 +43,11 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
         <section className="section verify-layout">
           <article className={`verify-card ${isValid ? "valid" : "invalid"}`}>
             <span className="verify-badge">{isValid ? "Valid Pass" : "Invalid Pass"}</span>
-            <div className="qr-box verify-qr">{registration?.publicId.slice(-3) || "--"}</div>
+            {registration ? (
+              <img className="qr-code-image verify-qr" src={`/api/qr/${registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
+            ) : (
+              <div className="qr-box verify-qr">--</div>
+            )}
             <h2>{registration?.name || "Pass not found"}</h2>
             <p>{registration?.publicId || params.id}</p>
             {registration?.checkedIn ? <strong className="checked-pill">Checked in</strong> : null}

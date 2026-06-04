@@ -275,7 +275,7 @@ dialog input:focus, dialog select:focus, dialog textarea:focus { border-color: #
 .detail-body strong { margin-bottom: 4px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
 .detail-body span { font-size: 12px; }
 .detail-body .qr-preview { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; }
-.detail-body .qr-preview b { grid-row: 1 / 3; grid-column: 2; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 10px; color: var(--purple); background: var(--lavender); font-size: 18px; }
+.detail-body .qr-preview img { grid-row: 1 / 3; grid-column: 2; width: 72px; height: 72px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .allotment-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .action-wrap { flex-wrap: wrap; }
 .empty-state { padding: 22px; color: var(--muted); text-align: center; }
