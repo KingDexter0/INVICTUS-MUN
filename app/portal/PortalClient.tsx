@@ -398,7 +398,7 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => document.querySelector("#resources")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">D</span> Resources <b>{resources.length}</b></button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="admin-card"><div className="avatar">AG</div><span><strong>Arin Gupta</strong><small>Super Admin</small></span></div>
+          <div className="admin-card"><div className="avatar">YP</div><span><strong>Yoksh Patil</strong><small>Super Admin</small></span></div>
         </div>
       </aside>
 
@@ -411,7 +411,7 @@ export function PortalClient() {
 
         <section className="content" id="overview">
           <div className="page-heading">
-            <div><p className="eyebrow">ADMIN PORTAL</p><h1>Good evening, Arin.</h1><p>Here is the live conference workspace.</p></div>
+            <div><p className="eyebrow">ADMIN PORTAL</p><h1>Good evening, Yoksh.</h1><p>Here is the live conference workspace.</p></div>
             <div className="heading-actions"><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
           </div>
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
