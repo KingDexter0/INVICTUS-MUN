@@ -146,6 +146,7 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
 .subpage-hero h1 { max-width: 900px; margin-bottom: 18px; font-size: clamp(42px, 6vw, 72px); }
 .subpage-hero p { max-width: 760px; color: var(--muted); font-size: 18px; line-height: 1.7; }
 .committee-directory { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-top: 24px; }
+.committee-poster { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 18px; background: #050008; }
 .directory-card h2 { margin: 24px 0 12px; font-size: 28px; }
 .directory-card p, .directory-card li { color: var(--muted); line-height: 1.65; }
 .directory-card ul { padding-left: 18px; }
