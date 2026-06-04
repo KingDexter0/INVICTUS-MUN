@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../lib/admin";
 import { prisma } from "../../../lib/prisma";
+import { requireOptionalImageUrl, safeText, sanitizeOptionalImageUrl } from "../../../lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ function serializeTestimonial(testimonial: {
 }) {
   return {
     ...testimonial,
+    photoUrl: sanitizeOptionalImageUrl(testimonial.photoUrl),
     createdAt: testimonial.createdAt.toISOString(),
     updatedAt: testimonial.updatedAt.toISOString()
   };
@@ -46,11 +48,11 @@ export async function POST(request: Request) {
   try {
     assertAdmin();
     const body = await request.json();
-    const name = String(body.name || "").trim();
-    const institution = String(body.institution || "").trim();
-    const quote = String(body.quote || "").trim();
-    const edition = String(body.edition || "").trim();
-    const photoUrl = String(body.photoUrl || "").trim();
+    const name = safeText(body.name, 120);
+    const institution = safeText(body.institution, 160);
+    const quote = safeText(body.quote, 1200);
+    const edition = safeText(body.edition, 80);
+    const photoUrl = requireOptionalImageUrl(body.photoUrl, "Testimonial photo URL");
 
     if (name.length < 2) return NextResponse.json({ error: "Testimonial name is required." }, { status: 400 });
     if (institution.length < 2) return NextResponse.json({ error: "Institution is required." }, { status: 400 });
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
         institution,
         quote,
         edition: edition || null,
-        photoUrl: photoUrl || null,
+        photoUrl,
         isPublished: body.isPublished !== false
       }
     });
@@ -72,8 +74,10 @@ export async function POST(request: Request) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });
     }
+    if (error instanceof Error && error.message.includes("photo URL")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error(error);
     return NextResponse.json({ error: "Could not save testimonial." }, { status: 500 });
   }
 }
-

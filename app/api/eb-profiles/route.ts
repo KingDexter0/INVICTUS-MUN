@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../lib/admin";
 import { uploadEbPhoto } from "../../../lib/cloudinary";
 import { prisma } from "../../../lib/prisma";
+import { requireOptionalSocialUrl, safeText, sanitizeOptionalImageUrl, sanitizeOptionalSocialUrl } from "../../../lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,9 @@ function serializeProfile(profile: {
 }) {
   return {
     ...profile,
+    photoUrl: sanitizeOptionalImageUrl(profile.photoUrl),
+    instagram: sanitizeOptionalSocialUrl(profile.instagram, ["instagram.com"]),
+    linkedin: sanitizeOptionalSocialUrl(profile.linkedin, ["linkedin.com"]),
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString()
   };
@@ -43,14 +47,14 @@ export async function POST(request: Request) {
   try {
     assertAdmin();
     const formData = await request.formData();
-    const fullName = String(formData.get("fullName") || "").trim();
-    const email = String(formData.get("email") || "").trim();
-    const phone = String(formData.get("phone") || "").trim();
-    const committee = String(formData.get("committee") || "").trim();
-    const position = String(formData.get("position") || "").trim();
-    const bio = String(formData.get("bio") || "").trim();
-    const instagram = String(formData.get("instagram") || "").trim();
-    const linkedin = String(formData.get("linkedin") || "").trim();
+    const fullName = safeText(formData.get("fullName"), 120);
+    const email = safeText(formData.get("email"), 160);
+    const phone = safeText(formData.get("phone"), 30);
+    const committee = safeText(formData.get("committee"), 120);
+    const position = safeText(formData.get("position"), 120);
+    const bio = safeText(formData.get("bio"), 1000);
+    const instagram = requireOptionalSocialUrl(formData.get("instagram"), ["instagram.com"], "Instagram");
+    const linkedin = requireOptionalSocialUrl(formData.get("linkedin"), ["linkedin.com"], "LinkedIn");
     const photo = formData.get("photo");
 
     if (fullName.length < 2) return NextResponse.json({ error: "EB full name is required." }, { status: 400 });
@@ -69,8 +73,8 @@ export async function POST(request: Request) {
         committee,
         position,
         bio,
-        instagram: instagram || null,
-        linkedin: linkedin || null
+        instagram,
+        linkedin
       }
     });
 
@@ -82,8 +86,10 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message.includes("Cloudinary is not configured")) {
       return NextResponse.json({ error: "Cloudinary is not configured for EB photo uploads." }, { status: 503 });
     }
+    if (error instanceof Error && (error.message.includes("Instagram") || error.message.includes("LinkedIn"))) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error(error);
     return NextResponse.json({ error: "Could not save EB profile." }, { status: 500 });
   }
 }
-

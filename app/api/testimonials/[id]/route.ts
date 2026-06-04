@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../lib/admin";
 import { prisma } from "../../../../lib/prisma";
+import { requireOptionalImageUrl, safeText, sanitizeOptionalImageUrl } from "../../../../lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,12 @@ function serializeTestimonial(testimonial: {
   createdAt: Date;
   updatedAt: Date;
 }) {
-  return { ...testimonial, createdAt: testimonial.createdAt.toISOString(), updatedAt: testimonial.updatedAt.toISOString() };
+  return {
+    ...testimonial,
+    photoUrl: sanitizeOptionalImageUrl(testimonial.photoUrl),
+    createdAt: testimonial.createdAt.toISOString(),
+    updatedAt: testimonial.updatedAt.toISOString()
+  };
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -25,11 +31,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const testimonial = await prisma.testimonial.update({
       where: { id: params.id },
       data: {
-        ...(body.name !== undefined ? { name: String(body.name).trim() } : {}),
-        ...(body.institution !== undefined ? { institution: String(body.institution).trim() } : {}),
-        ...(body.quote !== undefined ? { quote: String(body.quote).trim() } : {}),
-        ...(body.edition !== undefined ? { edition: String(body.edition || "").trim() || null } : {}),
-        ...(body.photoUrl !== undefined ? { photoUrl: String(body.photoUrl || "").trim() || null } : {}),
+        ...(body.name !== undefined ? { name: safeText(body.name, 120) } : {}),
+        ...(body.institution !== undefined ? { institution: safeText(body.institution, 160) } : {}),
+        ...(body.quote !== undefined ? { quote: safeText(body.quote, 1200) } : {}),
+        ...(body.edition !== undefined ? { edition: safeText(body.edition, 80) || null } : {}),
+        ...(body.photoUrl !== undefined ? { photoUrl: requireOptionalImageUrl(body.photoUrl, "Testimonial photo URL") } : {}),
         ...(body.isPublished !== undefined ? { isPublished: Boolean(body.isPublished) } : {})
       }
     });
@@ -37,6 +43,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes("photo URL")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error(error);
     return NextResponse.json({ error: "Could not update testimonial." }, { status: 500 });
@@ -56,4 +65,3 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     return NextResponse.json({ error: "Could not delete testimonial." }, { status: 500 });
   }
 }
-

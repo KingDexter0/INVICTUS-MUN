@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "./components/SiteHeader";
 import { prisma } from "../lib/prisma";
+import { sanitizeOptionalImageUrl } from "../lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,10 @@ export default async function HomePage() {
     orderBy: { createdAt: "desc" },
     take: 6
   });
+  const safeTestimonials = testimonials.map((testimonial) => ({
+    ...testimonial,
+    photoUrl: sanitizeOptionalImageUrl(testimonial.photoUrl)
+  }));
 
   return (
     <>
@@ -126,7 +131,7 @@ export default async function HomePage() {
         <section className="section testimonials" id="testimonials">
           <div className="section-head"><div><p className="eyebrow">TESTIMONIALS</p><h2>What delegates say about Invictus.</h2></div></div>
           <div className="testimonial-grid">
-            {testimonials.length ? testimonials.map((testimonial) => (
+            {safeTestimonials.length ? safeTestimonials.map((testimonial) => (
               <article className="testimonial-card" key={testimonial.id}>
                 <div className="testimonial-head">
                   {testimonial.photoUrl ? <img src={testimonial.photoUrl} alt={testimonial.name} /> : <span className="portrait small">{testimonial.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>}

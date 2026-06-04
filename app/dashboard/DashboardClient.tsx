@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { isSafeExternalUrl } from "../../lib/security";
 
 type Announcement = {
   id: string;
@@ -266,10 +267,12 @@ export function DashboardClient() {
               <h2>Resources</h2>
               <div className="resource-list compact">
                 {visibleResources.length ? visibleResources.map((resource) => (
-                  <a key={resource.id} href={resource.fileUrl} target="_blank">
+                  isSafeExternalUrl(resource.fileUrl) ? (
+                  <a key={resource.id} href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
                     <strong>{resource.title}</strong>
                     <span>{resource.category} - {resource.accessLevel}</span>
                   </a>
+                  ) : null
                 )) : <p className="empty-copy">No resources have been released for your current status yet.</p>}
               </div>
             </article>

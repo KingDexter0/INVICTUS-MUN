@@ -1,5 +1,6 @@
 import { SiteFooter, SiteHeader } from "../components/SiteHeader";
 import { prisma } from "../../lib/prisma";
+import { sanitizeOptionalImageUrl, sanitizeOptionalSocialUrl } from "../../lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +8,13 @@ export default async function ExecutiveBoardPage() {
   const profiles = await prisma.eBProfile.findMany({
     orderBy: [{ committee: "asc" }, { position: "asc" }, { fullName: "asc" }]
   });
-  const grouped = profiles.reduce<Record<string, typeof profiles>>((groups, profile) => {
+  const safeProfiles = profiles.map((profile) => ({
+    ...profile,
+    photoUrl: sanitizeOptionalImageUrl(profile.photoUrl),
+    instagram: sanitizeOptionalSocialUrl(profile.instagram, ["instagram.com"]),
+    linkedin: sanitizeOptionalSocialUrl(profile.linkedin, ["linkedin.com"])
+  }));
+  const grouped = safeProfiles.reduce<Record<string, typeof safeProfiles>>((groups, profile) => {
     groups[profile.committee] = [...(groups[profile.committee] || []), profile];
     return groups;
   }, {});
@@ -22,7 +29,7 @@ export default async function ExecutiveBoardPage() {
           <p>Meet the chairs, vice chairs, moderators, and press leadership shaping Invictus MUN 2026.</p>
         </section>
         <section className="section eb-directory">
-          {profiles.length ? Object.entries(grouped).map(([committee, members]) => (
+          {safeProfiles.length ? Object.entries(grouped).map(([committee, members]) => (
             <div className="eb-group" key={committee}>
               <div className="section-head">
                 <div><p className="eyebrow">{committee}</p><h2>{committee}</h2></div>
@@ -35,8 +42,8 @@ export default async function ExecutiveBoardPage() {
                     <strong>{member.position}</strong>
                     <p>{member.bio}</p>
                     <div className="eb-links">
-                      {member.instagram ? <a href={member.instagram} target="_blank">Instagram</a> : null}
-                      {member.linkedin ? <a href={member.linkedin} target="_blank">LinkedIn</a> : null}
+                      {member.instagram ? <a href={member.instagram} target="_blank" rel="noopener noreferrer">Instagram</a> : null}
+                      {member.linkedin ? <a href={member.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a> : null}
                     </div>
                   </article>
                 ))}
@@ -54,4 +61,3 @@ export default async function ExecutiveBoardPage() {
     </>
   );
 }
-
