@@ -22,6 +22,9 @@ function formatDate(value?: Date | null) {
 export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
   const registration = await prisma.registration.findUnique({
     where: { publicId: params.id }
+  }).catch((error) => {
+    console.error("Pass verification lookup unavailable", error);
+    return null;
   });
 
   const isValid = Boolean(registration && registration.allotmentStatus === "Allotted");
@@ -30,7 +33,7 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
     <>
       <SiteHeader cta="Check Status" ctaHref="/dashboard" />
       <main>
-        <section className="subpage-hero">
+        <section className="subpage-hero cinematic-subpage verify-hero">
           <p className="eyebrow">QR VERIFICATION</p>
           <h1>{isValid ? "Valid delegate pass." : "Invalid or inactive pass."}</h1>
           <p>

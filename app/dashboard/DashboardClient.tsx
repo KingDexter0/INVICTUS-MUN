@@ -113,6 +113,13 @@ export function DashboardClient() {
 
   const hasAllotment = registration?.allotmentStatus === "Allotted";
   const canPayOnline = registration && registration.paymentStatus !== "Verified";
+  const timelineSteps = registration ? [
+    { label: "Registered", active: Boolean(registration.publicId), detail: registration.publicId },
+    { label: "Payment", active: registration.paymentStatus === "Verified", detail: registration.paymentStatus },
+    { label: "Approved", active: registration.registrationStatus === "Approved", detail: registration.registrationStatus },
+    { label: "Allotted", active: hasAllotment, detail: registration.allotmentStatus },
+    { label: "QR Ready", active: hasAllotment, detail: hasAllotment ? "Ready" : "Locked" }
+  ] : [];
   const visibleResources = resources.filter((resource) => {
     if (resource.accessLevel === "Public" || resource.accessLevel === "Registered") return true;
     if (resource.accessLevel === "Approved") return registration?.registrationStatus === "Approved";
@@ -196,6 +203,15 @@ export function DashboardClient() {
 
       {registration ? (
         <>
+          <div className="status-timeline" aria-label="Registration progress timeline">
+            {timelineSteps.map((step, index) => (
+              <article className={step.active ? "status-step active" : "status-step"} key={step.label}>
+                <span className="status-dot">{index + 1}</span>
+                <strong>{step.label}</strong>
+                <small>{step.detail}</small>
+              </article>
+            ))}
+          </div>
           <div className="delegate-status-grid">
             <article><span>Registration</span><strong>{registration.registrationStatus}</strong></article>
             <article><span>Payment</span><strong>{registration.paymentStatus}</strong></article>
@@ -263,7 +279,7 @@ export function DashboardClient() {
                 )) : <p className="empty-copy">No announcements have been published yet.</p>}
               </div>
             </article>
-            <article className="dashboard-card">
+            <article className="dashboard-card" id="resources">
               <h2>Resources</h2>
               <div className="resource-list compact">
                 {visibleResources.length ? visibleResources.map((resource) => (

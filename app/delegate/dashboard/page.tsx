@@ -27,6 +27,13 @@ export default async function DelegateDashboardPage() {
   ]);
 
   const hasAllotment = registration.allotmentStatus === "Allotted";
+  const timelineSteps = [
+    { label: "Registered", active: Boolean(registration.publicId), detail: registration.publicId },
+    { label: "Payment", active: registration.paymentStatus === "Verified", detail: registration.paymentStatus },
+    { label: "Approved", active: registration.registrationStatus === "Approved", detail: registration.registrationStatus },
+    { label: "Allotted", active: hasAllotment, detail: registration.allotmentStatus },
+    { label: "QR Ready", active: hasAllotment, detail: hasAllotment ? "Ready" : "Locked" }
+  ];
   const visibleResources = resources.filter((resource) => {
     if (resource.accessLevel === "Public" || resource.accessLevel === "Registered") return true;
     if (resource.accessLevel === "Approved") return registration.registrationStatus === "Approved";
@@ -38,7 +45,7 @@ export default async function DelegateDashboardPage() {
     <>
       <SiteHeader cta="Public Status" ctaHref="/dashboard" />
       <main>
-        <section className="subpage-hero dashboard-hero">
+        <section className="subpage-hero cinematic-subpage dashboard-hero">
           <p className="eyebrow">DELEGATE DASHBOARD</p>
           <h1>Welcome, {registration.name}.</h1>
           <p>Your private dashboard shows only your registration, payment, allotment, QR pass, resources, and announcements.</p>
@@ -47,6 +54,15 @@ export default async function DelegateDashboardPage() {
           </div>
         </section>
         <section className="section delegate-dashboard">
+          <div className="status-timeline" aria-label="Registration progress timeline">
+            {timelineSteps.map((step, index) => (
+              <article className={step.active ? "status-step active" : "status-step"} key={step.label}>
+                <span className="status-dot">{index + 1}</span>
+                <strong>{step.label}</strong>
+                <small>{step.detail}</small>
+              </article>
+            ))}
+          </div>
           <div className="delegate-status-grid">
             <article><span>Registration</span><strong>{registration.registrationStatus}</strong></article>
             <article><span>Payment</span><strong>{registration.paymentStatus}</strong></article>

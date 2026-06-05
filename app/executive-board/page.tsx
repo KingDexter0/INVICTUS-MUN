@@ -16,16 +16,26 @@ const localBoardPosters = [
   { name: "Preeti Pania", committee: "International Press", position: "Head of Photography", image: "/local-media/executive-board/preeti-pania.png" }
 ];
 
+async function getSafeEbProfiles() {
+  try {
+    const profiles = await prisma.eBProfile.findMany({
+      orderBy: [{ committee: "asc" }, { position: "asc" }, { fullName: "asc" }]
+    });
+
+    return profiles.map((profile) => ({
+      ...profile,
+      photoUrl: sanitizeOptionalImageUrl(profile.photoUrl),
+      instagram: sanitizeOptionalSocialUrl(profile.instagram, ["instagram.com"]),
+      linkedin: sanitizeOptionalSocialUrl(profile.linkedin, ["linkedin.com"])
+    }));
+  } catch (error) {
+    console.error("Executive board profiles unavailable", error);
+    return [];
+  }
+}
+
 export default async function ExecutiveBoardPage() {
-  const profiles = await prisma.eBProfile.findMany({
-    orderBy: [{ committee: "asc" }, { position: "asc" }, { fullName: "asc" }]
-  });
-  const safeProfiles = profiles.map((profile) => ({
-    ...profile,
-    photoUrl: sanitizeOptionalImageUrl(profile.photoUrl),
-    instagram: sanitizeOptionalSocialUrl(profile.instagram, ["instagram.com"]),
-    linkedin: sanitizeOptionalSocialUrl(profile.linkedin, ["linkedin.com"])
-  }));
+  const safeProfiles = await getSafeEbProfiles();
   const grouped = safeProfiles.reduce<Record<string, typeof safeProfiles>>((groups, profile) => {
     groups[profile.committee] = [...(groups[profile.committee] || []), profile];
     return groups;
@@ -35,10 +45,10 @@ export default async function ExecutiveBoardPage() {
     <>
       <SiteHeader />
       <main>
-        <section className="subpage-hero">
+        <section className="subpage-hero cinematic-subpage executive-hero">
           <p className="eyebrow">EXECUTIVE BOARD</p>
-          <h1>The people guiding committee rooms.</h1>
-          <p>Meet the chairs, vice chairs, moderators, and press leadership shaping Invictus MUN 2026.</p>
+          <h1>Authority in the committee room.</h1>
+          <p>Meet the chairs, vice chairs, moderators, and press leadership shaping Invictus MUN 2026 with procedure, restraint, and institutional credibility.</p>
         </section>
         <section className="section eb-directory">
           {safeProfiles.length ? Object.entries(grouped).map(([committee, members]) => (

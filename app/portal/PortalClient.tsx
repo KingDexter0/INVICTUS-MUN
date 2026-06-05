@@ -866,6 +866,7 @@ export function PortalClient() {
         <nav className="primary-nav" aria-label="Main navigation">
           <p className="nav-label">COMMAND CENTRE</p>
           <Link className="nav-item" href="/"><span className="nav-icon">H</span> Public Site</Link>
+          <Link className="nav-item" href="/admin-portal/check-in"><span className="nav-icon">Q</span> QR Check-in</Link>
           <button className="nav-item active" type="button" onClick={() => clearView()}><span className="nav-icon">O</span> Overview</button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("all")}><span className="nav-icon">R</span> Registrations <b>{registrations.length}</b></button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("payments")}><span className="nav-icon">P</span> Payments <b>{stats.needsPayment}</b></button>
@@ -891,7 +892,7 @@ export function PortalClient() {
         <section className="content" id="overview">
           <div className="page-heading">
             <div><p className="eyebrow">ADMIN PORTAL</p><h1>Good evening, Yoksh.</h1><p>Here is the live conference workspace.</p></div>
-            <div className="heading-actions"><button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
+            <div className="heading-actions"><Link className="button primary" href="/admin-portal/check-in">QR Check-in</Link><button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
           </div>
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
 

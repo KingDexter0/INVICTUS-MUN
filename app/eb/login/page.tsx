@@ -6,10 +6,10 @@ export default function EbLoginPage() {
     <>
       <SiteHeader />
       <main>
-        <section className="subpage-hero">
+        <section className="subpage-hero cinematic-subpage eb-login-hero">
           <p className="eyebrow">EB LOGIN</p>
           <h1>Executive Board workspace.</h1>
-          <p>EB members can verify using the email and phone saved in their EB profile.</p>
+          <p>EB members can verify using the email and phone saved in their EB profile. This workspace stays separate from admin operations.</p>
         </section>
         <section className="section registration-layout">
           <LoginClient />
@@ -20,4 +20,3 @@ export default function EbLoginPage() {
     </>
   );
 }
-

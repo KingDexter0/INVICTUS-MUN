@@ -5,205 +5,285 @@ import { sanitizeOptionalImageUrl } from "../lib/security";
 
 export const dynamic = "force-dynamic";
 
-const galleryImages = [
-  { src: "/local-media/gallery/background-3.jpeg", alt: "Invictus MUN opening ceremony in the main auditorium", size: "wide" },
-  { src: "/local-media/gallery/formal-1.jpeg", alt: "Delegate speaking at the podium", size: "tall" },
-  { src: "/local-media/gallery/aesthetic-1.jpeg", alt: "Committee delegate during debate", size: "" },
-  { src: "/local-media/gallery/casual-1.jpeg", alt: "Delegates sharing a light moment", size: "" },
-  { src: "/local-media/gallery/background-5.jpeg", alt: "Delegates seated in the auditorium", size: "wide" },
-  { src: "/local-media/gallery/aesthetic-14.jpeg", alt: "Committee voting session", size: "" },
-  { src: "/local-media/gallery/formal-8.jpeg", alt: "Award presentation on stage", size: "" },
-  { src: "/local-media/gallery/casual-7.jpeg", alt: "Delegates posing between sessions", size: "" }
+const snapshotCards = [
+  ["360+", "Delegates", "A serious multi-committee conference environment."],
+  ["10", "Committees", "Decision-focused rooms across global and national mandates."],
+  ["INR 2L", "Cash Prizes", "Recognition for rigor, leadership, and policy clarity."],
+  ["Multi-Regional", "Participation", "Delegates and institutions across regions."]
 ];
 
+const differentiators = [
+  {
+    number: "01",
+    title: "Institution-Grade Committees",
+    copy: "Committees are structured with real mandates, legal grounding, and decision consequences - not theatrics. Delegates are rewarded for precision, not volume."
+  },
+  {
+    number: "02",
+    title: "Elite Executive Board",
+    copy: "Chairs are selected for authority, enforcement, and credibility - not popularity. The Board protects committee integrity with consistency."
+  },
+  {
+    number: "03",
+    title: "Serious Delegate Culture",
+    copy: "Delegates are expected to prepare deeply, research responsibly, and engage with restraint. Invictus rewards defensible outcomes."
+  }
+];
+
+const editionCards = [
+  ["Expanded Cash Prizes", "Recognition that rewards preparation, policy rigor, and leadership - not theatrics."],
+  ["International Delegations", "Broader global participation across committees, raising the standard of competition and debate."],
+  ["Structured Social Spaces", "Designed networking and curated interactions - not chaos disguised as socials."]
+];
+
+const committeePreview = [
+  ["UNHRC", "/committees/unhrc.jpg", "Human rights protection in conflict zones.", "Advanced", "Grades 10-12+", "Guide ready"],
+  ["Arab League", "/committees/arab-league.jpg", "Regional security and energy diplomacy.", "Intermediate", "Open", "Guide ready"],
+  ["UNCSW", "/committees/uncsw.jpg", "Gender equity and safety frameworks.", "Intermediate", "Open", "Guide ready"],
+  ["FIFA", "/committees/fifa.jpg", "Football governance and ethical sport policy.", "Beginner", "Open", "Guide ready"],
+  ["UNGA-ESS", "/committees/unga-ess.jpg", "Emergency multilateral crisis response.", "Advanced", "Experienced", "Guide ready"],
+  ["Lok Sabha", "/committees/lok-sabha.jpg", "Indian parliamentary policy debate.", "Beginner", "Open", "Guide ready"],
+  ["International Press", "/committees/international-press.jpg", "Editorial reporting and photography.", "Press", "Writers", "Guide ready"]
+];
+
+const ebHighlights = [
+  ["Aditya Kiran", "Chairperson", "UNGA-ESS", "/local-media/executive-board/aditya-kiran.png"],
+  ["Mehek Singh", "Vice-Chairperson", "UNCSW", "/local-media/executive-board/mehek-singh.png"],
+  ["Paarth Veturkar", "Vice-Chairperson", "Arab League", "/local-media/executive-board/paarth-veturkar.png"],
+  ["Preeti Pania", "Head of Photography", "International Press", "/local-media/executive-board/preeti-pania.png"]
+];
+
+async function getSafeTestimonials() {
+  try {
+    const testimonials = await prisma.testimonial.findMany({
+      where: { isPublished: true },
+      orderBy: { createdAt: "desc" },
+      take: 6
+    });
+
+    return testimonials.map((testimonial) => ({
+      ...testimonial,
+      photoUrl: sanitizeOptionalImageUrl(testimonial.photoUrl)
+    }));
+  } catch (error) {
+    console.error("Homepage testimonials unavailable", error);
+    return [];
+  }
+}
+
 export default async function HomePage() {
-  const testimonials = await prisma.testimonial.findMany({
-    where: { isPublished: true },
-    orderBy: { createdAt: "desc" },
-    take: 6
-  });
-  const safeTestimonials = testimonials.map((testimonial) => ({
-    ...testimonial,
-    photoUrl: sanitizeOptionalImageUrl(testimonial.photoUrl)
-  }));
+  const safeTestimonials = await getSafeTestimonials();
 
   return (
     <>
       <SiteHeader />
       <main>
-        <section className="hero">
-          <div className="hero-copy">
-            <p className="eyebrow">INVICTUS MUN 2026</p>
-            <h1>Where diplomacy meets digital excellence.</h1>
-            <p>
-              A premium Model United Nations conference built for serious debate, thoughtful research,
-              and a professional delegate experience from registration to committee room.
+        <section className="cinematic-hero">
+          <img className="cinematic-hero-bg" src="/local-media/gallery/background-4.jpeg" alt="" aria-hidden="true" />
+          <div className="hero-scroll-cue"><span>SCROLL</span><strong>↓</strong></div>
+          <div className="cinematic-hero-content">
+            <span className="hero-line" />
+            <p className="hero-kicker">INSTITUTION-DRIVEN · INTERNATIONAL · 2026 EDITION</p>
+            <h1>Invictus Model United Nations</h1>
+            <p className="hero-main-line">
+              We do not simulate debate culture &mdash;<br />
+              we simulate decision-making.
+            </p>
+            <p className="hero-support">
+              Invictus Model United Nations is built to mirror the seriousness, structure, and responsibility of real diplomacy. A full-scale diplomatic conference experience built around structure, accountability, research, and institutional excellence.
             </p>
             <div className="hero-actions">
               <Link className="button primary" href="/registration">Register Now</Link>
-              <Link className="button secondary" href="/dashboard">Check Status</Link>
-              <Link className="button ghost" href="/committees">Explore Committees</Link>
+              <Link className="button secondary" href="/committees">Explore Committees</Link>
+              <Link className="button ghost" href="/dashboard#resources">Access Resources</Link>
+              <Link className="button ghost" href="/delegate/login">Delegate Login</Link>
             </div>
-            <div className="hero-proof">
-              <span><strong>750+</strong><small>Expected delegates</small></span>
-              <span><strong>13</strong><small>Committee tracks</small></span>
-              <span><strong>QR</strong><small>Digital check-in</small></span>
-            </div>
-          </div>
-          <div className="hero-panel photo-panel" aria-label="Conference snapshot">
-            <img src="/local-media/gallery/background-3.jpeg" alt="Invictus MUN conference hall" />
-            <div className="hero-card main-card">
-              <span className="live-pill">Registrations Live</span>
-              <h2>Invictus MUN 2026</h2>
-              <p>12-13 July 2026<br />The Grand Convention Centre</p>
-              <div className="mini-grid">
-                <span><small>Fee</small><strong>From INR 1,500</strong></span>
-                <span><small>Deadline</small><strong>30 June 2026</strong></span>
-              </div>
-            </div>
-            <div className="floating-card left"><small>Registration</small><strong>Now open</strong></div>
-            <div className="floating-card right"><small>Allotments</small><strong>Released online</strong></div>
           </div>
         </section>
 
-        <section className="section stats-strip" aria-label="Conference statistics">
-          <article><strong>750+</strong><span>expected delegates</span></article>
-          <article><strong>13</strong><span>committee tracks</span></article>
-          <article><strong>QR</strong><span>attendance check-in</span></article>
-          <article><strong>30 June</strong><span>registration deadline</span></article>
-        </section>
-
-        <section className="section split" id="about">
-          <div>
-            <p className="eyebrow">ABOUT INVICTUS</p>
-            <h2>A conference built like an institution.</h2>
-            <p>
-              Invictus MUN exists to create a serious, research-driven diplomatic environment for students,
-              while giving organizers the infrastructure needed to run a modern large-scale event without
-              administrative chaos.
-            </p>
-            <p>
-              The website is the official place where participants register, explore committees,
-              access resources, contact the team, and check their delegate status.
-            </p>
-          </div>
-          <div className="values-grid">
-            <article><span>01</span><strong>Diplomacy</strong><p>Committee rooms designed for negotiation and principled debate.</p></article>
-            <article><span>02</span><strong>Research</strong><p>Portfolio matrix, study guides, and structured resources for better preparation.</p></article>
-            <article><span>03</span><strong>Leadership</strong><p>Purpose-built workflows for delegates, EB, Secretariat, and admins.</p></article>
-            <article><span>04</span><strong>Professionalism</strong><p>Transparent allotments, verified payments, and QR-based check-in.</p></article>
-          </div>
-        </section>
-
-        <section className="section" id="committees">
-          <div className="section-head">
-            <div><p className="eyebrow">COMMITTEES</p><h2>Debate tracks for every level of delegate.</h2></div>
-            <Link href="/committees">View all committees</Link>
-          </div>
-          <div className="committee-grid">
-            {[
-              ["Advanced", "UNHRC", "Human rights protections in regions affected by conflict and displacement.", "advanced"],
-              ["Intermediate", "Arab League", "Regional security, energy diplomacy, and humanitarian cooperation.", "intermediate"],
-              ["Beginner", "FIFA", "Governance, hosting rights, sporting ethics, and global football policy.", "beginner"],
-              ["Press", "International Press", "Journalism, photography, and editorial coverage across the conference.", "press"]
-            ].map(([level, title, copy, tag]) => (
-              <article className="committee-card" key={title}>
-                <span className={`tag ${tag}`}>{level}</span>
-                <h3>{title}</h3>
+        <section className="premium-section snapshot-section" aria-label="Conference snapshot">
+          <div className="section-shell snapshot-grid">
+            {snapshotCards.map(([value, label, copy]) => (
+              <article className="premium-card snapshot-card reveal-card" key={label}>
+                <strong>{value}</strong>
+                <span>{label}</span>
                 <p>{copy}</p>
-                <small>Register online</small>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="section process" id="registration">
-          <div className="section-head">
-            <div><p className="eyebrow">REGISTRATION FLOW</p><h2>Clear for delegates. Traceable for organizers.</h2></div>
-            <Link href="/registration">Start registration</Link>
-          </div>
-          <div className="process-grid">
-            <article><span>1</span><strong>Submit details</strong><p>Personal, committee, experience, and accommodation fields.</p></article>
-            <article><span>2</span><strong>Pay with Razorpay</strong><p>Complete the registration fee securely from your dashboard.</p></article>
-            <article><span>3</span><strong>Verification</strong><p>Successful Razorpay payments update your status automatically.</p></article>
-            <article><span>4</span><strong>Receive allotment</strong><p>Committee, portfolio matrix, resources, and QR pass appear on the dashboard.</p></article>
-          </div>
-        </section>
-
-        <section className="section" id="eb">
-          <div className="section-head"><div><p className="eyebrow">LEADERSHIP</p><h2>Executive Board and Secretariat.</h2></div><Link href="/executive-board">View Executive Board</Link></div>
-          <div className="team-grid">
-            <article><div className="portrait">SG</div><h3>Secretary-General</h3><p>Conference strategy and delegate experience.</p></article>
-            <article><div className="portrait">DG</div><h3>Director-General</h3><p>Operations, logistics, and event-day execution.</p></article>
-            <article><div className="portrait">EB</div><h3>Executive Board</h3><p>Committee moderation, guides, and debate procedure.</p></article>
-            <article><div className="portrait">TO</div><h3>Technology Operations</h3><p>Registration support, delegate dashboards, and event data workflows.</p></article>
+        <section className="premium-section light" id="about">
+          <div className="section-shell">
+            <div className="section-intro">
+              <p className="section-kicker">CORE DIFFERENTIATORS</p>
+              <h2>Why Invictus Is Different</h2>
+              <p>Invictus was built to correct what modern conferences dilute - seriousness, procedural depth, and intellectual honesty.</p>
+            </div>
+            <div className="differentiator-grid">
+              {differentiators.map((item) => (
+                <article className="premium-card differentiator-card reveal-card" key={item.title}>
+                  <span>{item.number}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.copy}</p>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="section testimonials" id="testimonials">
-          <div className="section-head"><div><p className="eyebrow">TESTIMONIALS</p><h2>What delegates say about Invictus.</h2></div></div>
-          <div className="testimonial-grid">
-            {safeTestimonials.length ? safeTestimonials.map((testimonial) => (
-              <article className="testimonial-card" key={testimonial.id}>
-                <div className="testimonial-head">
-                  {testimonial.photoUrl ? <img src={testimonial.photoUrl} alt={testimonial.name} /> : <span className="portrait small">{testimonial.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>}
-                  <span><strong>{testimonial.name}</strong><small>{testimonial.institution}</small></span>
-                </div>
-                <p>{testimonial.quote}</p>
-                {testimonial.edition ? <small>{testimonial.edition}</small> : null}
-              </article>
-            )) : (
-              <div className="empty-panel">
-                <h2>Testimonials coming soon</h2>
-                <p>Published delegate feedback will appear here after the organizing team adds it.</p>
+        <section className="premium-section dark-feature">
+          <img className="feature-bg" src="/local-media/gallery/background-6.jpeg" alt="" aria-hidden="true" />
+          <div className="section-shell philosophy-layout">
+            <div>
+              <p className="section-kicker">INSTITUTIONAL PHILOSOPHY</p>
+              <h2>Our Philosophy</h2>
+              <p>Invictus does not exist to feel large. It exists to feel legitimate. The goal is not performance - it is disciplined decision-making.</p>
+              <blockquote>
+                "Seriousness is not aesthetics.<br />
+                It is process. It is discipline.<br />
+                It is accountability."
+              </blockquote>
+            </div>
+            <div className="philosophy-stack">
+              {["Structure over spectacle", "Authority over popularity", "Outcomes over optics"].map((item) => (
+                <article className="glass-card" key={item}>{item}</article>
+              ))}
+            </div>
+            <p className="philosophy-note">
+              Real institutions do not reward noise. They reward clarity, restraint, and responsibility. Invictus trains delegates to think like decision-makers: to build arguments that survive scrutiny, and to propose outcomes that can be defended under pressure.
+            </p>
+          </div>
+        </section>
+
+        <section className="premium-section light">
+          <div className="section-shell">
+            <div className="section-intro">
+              <p className="section-kicker">2026 EDITION</p>
+              <h2>Invictus MUN 2026</h2>
+              <p>The 2026 edition expands what matters - scale, quality, international reach, and recognition - while keeping the academic standard non-negotiable.</p>
+            </div>
+            <div className="premium-grid three">
+              {editionCards.map(([title, copy]) => (
+                <article className="premium-card reveal-card" key={title}>
+                  <h3>{title}</h3>
+                  <p>{copy}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="premium-section committee-showcase" id="committees">
+          <img className="feature-bg soft" src="/local-media/gallery/background-1.jpeg" alt="" aria-hidden="true" />
+          <div className="section-shell">
+            <div className="section-head cinematic-head">
+              <div>
+                <p className="section-kicker">COMMITTEE PREVIEW</p>
+                <h2>Rooms built for policy realism.</h2>
+                <p>Every committee is framed around mandate, procedure, and outcome quality.</p>
               </div>
-            )}
+              <Link className="text-link" href="/committees">View All Committees</Link>
+            </div>
+            <div className="committee-preview-grid">
+              {committeePreview.map(([name, image, agenda, difficulty, eligibility, guide]) => (
+                <article className="committee-preview-card reveal-card" key={name}>
+                  <img src={image} alt={`${name} committee poster`} />
+                  <div>
+                    <span className="pill">{difficulty}</span>
+                    <h3>{name}</h3>
+                    <p>{agenda}</p>
+                    <div className="badge-row">
+                      <small>{eligibility}</small>
+                      <small>{guide}</small>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="section split" id="past">
-          <div><p className="eyebrow">PAST CONFERENCES</p><h2>Credibility built through previous editions.</h2><p>Invictus MUN's public presence highlights delegate numbers, represented institutions, social reach, and alumni confidence from earlier conferences.</p></div>
-          <div className="credibility-grid"><article><strong>30+</strong><span>institutions represented</span></article><article><strong>1.2K+</strong><span>community reach</span></article><article><strong>4.8/5</strong><span>delegate feedback</span></article><article><strong>2026</strong><span>next edition</span></article></div>
-        </section>
-
-        <section className="section gallery-section" id="gallery">
-          <div className="section-head">
-            <div><p className="eyebrow">CONFERENCE GALLERY</p><h2>Inside the Invictus committee rooms.</h2></div>
-          </div>
-          <div className="gallery-grid">
-            {galleryImages.map((image) => (
-              <figure className={image.size ? `gallery-item ${image.size}` : "gallery-item"} key={image.src}>
-                <img src={image.src} alt={image.alt} />
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        <section className="section resources" id="resources">
-          <div><p className="eyebrow">RESOURCES</p><h2>Everything delegates need, released clearly.</h2><p>Committee information, portfolio matrix files, study guides, EB resources, schedules, and policy documents are shared through the official website and delegate dashboard as they are released.</p></div>
-          <div className="resource-list"><Link href="/registration"><strong>Delegate Registration</strong><span>Public</span></Link><Link href="/committees"><strong>Committee Information</strong><span>Public</span></Link><Link href="/dashboard"><strong>Portfolio Matrix & Study Guides</strong><span>Dashboard</span></Link><Link href="/executive-board"><strong>E-Board Resources</strong><span>Published profiles</span></Link></div>
-        </section>
-
-        <section className="section faq" id="faq">
-          <div className="section-head"><div><p className="eyebrow">FAQS</p><h2>Common questions.</h2></div></div>
-          <details open><summary>Who can register?</summary><p>Individual delegates, delegation delegates, international delegates, International Press members, EB applicants, and Secretariat members can register.</p></details>
-          <details><summary>How are payments verified?</summary><p>Delegates pay online through Razorpay. Successful payments are verified automatically and reflected on the dashboard.</p></details>
-          <details><summary>When do allotments appear?</summary><p>Allotments appear after payment verification and registration approval.</p></details>
-        </section>
-
-        <section className="section policies" id="policies">
-          <div className="section-head"><div><p className="eyebrow">POLICIES</p><h2>Clear rules for a professional conference.</h2></div></div>
-          <div className="policy-grid">
-            <article><strong>Code of Conduct</strong><p>Delegates must maintain respectful language, follow committee procedure, and comply with Secretariat instructions throughout the conference.</p></article>
-            <article><strong>Refund and Payment Policy</strong><p>Registrations move forward after Razorpay payment confirmation. Refund requests are reviewed by the organizing team according to conference timelines and payment status.</p></article>
-            <article><strong>Allotment Policy</strong><p>Allotments depend on committee preference, experience, eligibility, and capacity. Final decisions are released through the delegate dashboard.</p></article>
-            <article><strong>Privacy Policy</strong><p>Participant records are used only for registration, verification, allotment, communication, and event operations.</p></article>
+        <section className="premium-section light" id="eb">
+          <div className="section-shell">
+            <div className="section-head">
+              <div>
+                <p className="section-kicker">EXECUTIVE BOARD</p>
+                <h2>Leadership with procedural authority.</h2>
+                <p>The Board exists to protect committee integrity, enforce procedure, and raise the academic standard.</p>
+              </div>
+              <Link className="text-link" href="/executive-board">View Executive Board</Link>
+            </div>
+            <div className="eb-highlight-grid">
+              {ebHighlights.map(([name, position, committee, image]) => (
+                <article className="eb-highlight-card reveal-card" key={name}>
+                  <img src={image} alt={name} />
+                  <div>
+                    <span>{committee}</span>
+                    <h3>{name}</h3>
+                    <p>{position}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="section contact" id="contact">
-          <div><p className="eyebrow">CONTACT</p><h2>Ready to join Invictus MUN?</h2><p>Email <a href="mailto:team@invictusmun.com">team@invictusmun.com</a> for registration, payment verification, allotment, and conference policy questions.</p></div>
-          <div className="contact-actions"><Link className="button primary" href="/registration">Register Now</Link><Link className="button secondary" href="/dashboard">Check Status</Link></div>
+        <section className="premium-section testimonials" id="testimonials">
+          <div className="section-shell">
+            <div className="section-intro">
+              <p className="section-kicker">TESTIMONIALS</p>
+              <h2>Proof from the conference floor.</h2>
+            </div>
+            <div className="testimonial-grid premium-testimonials">
+              {safeTestimonials.length ? safeTestimonials.map((testimonial) => (
+                <article className="testimonial-card reveal-card" key={testimonial.id}>
+                  <div className="testimonial-head">
+                    {testimonial.photoUrl ? <img src={testimonial.photoUrl} alt={testimonial.name} /> : <span className="portrait small">{testimonial.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>}
+                    <span><strong>{testimonial.name}</strong><small>{testimonial.institution}</small></span>
+                  </div>
+                  <p>{testimonial.quote}</p>
+                  {testimonial.edition ? <small>{testimonial.edition}</small> : null}
+                </article>
+              )) : (
+                <article className="empty-panel premium-empty">
+                  <h2>Delegate testimonials will appear here.</h2>
+                  <p>The organizing team can publish testimonials from the admin portal. Until then, this space stays clean and credible.</p>
+                </article>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="premium-section light resources" id="resources">
+          <div className="section-shell resource-cta-grid">
+            <div className="resource-cta-copy">
+              <p className="section-kicker">RESOURCES / STUDY GUIDES</p>
+              <h2>Preparation belongs in one place.</h2>
+              <p>Access background guides, Rules of Procedure, schedules, REMs, and delegate resources through the portal.</p>
+            </div>
+            <article className="resource-cta-card">
+              <span className="resource-panel-kicker">Published Resources</span>
+              <h3>Study guides, schedules, ROPs, and delegate files.</h3>
+              <p>Files published from the admin portal appear in the resources area, so delegates always see the latest released material.</p>
+              <div className="resource-link-grid">
+                <Link className="button primary" href="/dashboard#resources">View Published Resources</Link>
+                <Link className="button secondary" href="/delegate/login">Delegate Login</Link>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="final-cta" id="contact">
+          <div className="section-shell">
+            <p className="section-kicker">ENTER SERIOUS DIPLOMACY</p>
+            <h2>Registrations for Invictus Model United Nations 2026 are now open.</h2>
+            <p>If you want a conference that feels legitimate - this is it.</p>
+            <div className="hero-actions">
+              <Link className="button primary" href="/registration">Register Now</Link>
+              <Link className="button secondary" href="/dashboard#resources">View Resources</Link>
+            </div>
+          </div>
         </section>
       </main>
       <SiteFooter />

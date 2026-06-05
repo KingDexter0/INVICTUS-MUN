@@ -7,10 +7,10 @@ export default function DelegateLoginPage() {
     <>
       <SiteHeader cta="Register Now" ctaHref="/registration" />
       <main>
-        <section className="subpage-hero dashboard-hero">
+        <section className="subpage-hero cinematic-subpage login-hero">
           <p className="eyebrow">DELEGATE LOGIN</p>
-          <h1>Open your private delegate dashboard.</h1>
-          <p>Verify with the same email and phone number used during registration.</p>
+          <h1>Open your private delegate command centre.</h1>
+          <p>Verify with the same email and phone number used during registration. Your dashboard shows only your registration, allotment, resources, and QR pass.</p>
         </section>
         <section className="section registration-layout">
           <LoginClient />
@@ -25,4 +25,3 @@ export default function DelegateLoginPage() {
     </>
   );
 }
-

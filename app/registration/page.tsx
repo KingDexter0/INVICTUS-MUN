@@ -7,10 +7,10 @@ export default function RegistrationPage() {
     <>
       <SiteHeader cta="Check Status" ctaHref="/dashboard" />
       <main>
-        <section className="subpage-hero">
+        <section className="subpage-hero cinematic-subpage registration-hero">
           <p className="eyebrow">REGISTRATION</p>
-          <h1>Submit your delegate application.</h1>
-          <p>Submit your delegate details, then complete the registration fee securely through Razorpay from your dashboard.</p>
+          <h1>Enter Serious Diplomacy.</h1>
+          <p>Submit your delegate details, committee preferences, experience, and logistics information. Payment is completed securely through Razorpay from your dashboard.</p>
         </section>
         <section className="section registration-layout">
           <RegistrationClient />
@@ -24,6 +24,7 @@ export default function RegistrationPage() {
               <li>Committee and portfolio allotment appears on your dashboard.</li>
               <li>Your QR pass becomes available for event-day check-in.</li>
             </ol>
+            <p className="empty-copy">Your data is used only for Invictus MUN registration and event operations.</p>
             <Link className="button secondary" href="/dashboard">Check registration status</Link>
           </aside>
         </section>

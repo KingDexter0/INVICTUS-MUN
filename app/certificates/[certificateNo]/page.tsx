@@ -15,6 +15,11 @@ export default async function CertificatePage({ params }: { params: { certificat
     <>
       <SiteHeader />
       <main>
+        <section className="subpage-hero cinematic-subpage certificate-hero">
+          <p className="eyebrow">VERIFIABLE CERTIFICATE</p>
+          <h1>Official Invictus Recognition.</h1>
+          <p>Each certificate is issued against a registered delegate record and can be verified through its certificate number.</p>
+        </section>
         <section className="section certificate-page">
           <article className="certificate-card">
             <p className="eyebrow">INVICTUS MUN 2026</p>
@@ -30,4 +35,3 @@ export default async function CertificatePage({ params }: { params: { certificat
     </>
   );
 }
-
