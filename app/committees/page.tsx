@@ -75,7 +75,7 @@ export default function CommitteesPage() {
         <section className="subpage-hero">
           <p className="eyebrow">COMMITTEES</p>
           <h1>Choose the room where your diplomacy sharpens.</h1>
-          <p>Every committee card includes agenda direction, difficulty, eligibility, portfolio type, and guide status.</p>
+          <p>Invictus operations support 13 committee tracks. Published committee cards include agenda direction, difficulty, eligibility, portfolio type, and resource release status.</p>
         </section>
         <section className="section committee-directory">
           {committees.map(({ level, name, agenda, eligibility, portfolio, tag, image }) => (
@@ -87,7 +87,7 @@ export default function CommitteesPage() {
               <ul>
                 <li>Eligibility: {eligibility}</li>
                 <li>Portfolio type: {portfolio}</li>
-                <li>Guide status: Coming soon</li>
+                <li>Guide status: Released through delegate resources</li>
               </ul>
               <Link href="/registration">Register for {name}</Link>
             </article>

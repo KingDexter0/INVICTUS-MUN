@@ -1161,13 +1161,14 @@ export function PortalClient() {
               <label>Allotted committee<select value={committee} onChange={(event) => setCommittee(event.target.value)}><option value="">Select committee</option>{Object.keys(capacities).map((item) => <option key={item}>{item}</option>)}</select></label>
               <label>Allotted portfolio<input value={portfolio} onChange={(event) => setPortfolio(event.target.value)} placeholder="Country / role" /></label>
               <label className="wide">Admin note<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note for this update" /></label>
+              <p className="empty-copy wide">Admins can change the allotted committee or portfolio here, then save the allotment again. The delegate dashboard and QR pass update immediately from the database.</p>
             </div>
             <div className="dialog-actions action-wrap">
               <button className="button secondary" onClick={() => setActive(null)}>Close</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment rejection", { paymentStatus: "Rejected", registrationStatus: "Action Needed" })}>{activeAction === "Payment rejection" ? "Saving..." : "Reject payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment verification", { paymentStatus: "Verified" })}>{activeAction === "Payment verification" ? "Saving..." : "Verify payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Registration approval", { paymentStatus: "Verified", registrationStatus: "Approved" })}>{activeAction === "Registration approval" ? "Saving..." : "Approve"}</button>
-              <button className="button primary" disabled={Boolean(activeAction)} onClick={() => patchActive("Allotment release", { paymentStatus: "Verified", registrationStatus: "Approved", allotmentStatus: "Allotted", allottedCommittee: committee || "", allottedPortfolio: portfolio || "" })}>{activeAction === "Allotment release" ? "Saving..." : "Release allotment"}</button>
+              <button className="button primary" disabled={Boolean(activeAction)} onClick={() => patchActive("Allotment release", { paymentStatus: "Verified", registrationStatus: "Approved", allotmentStatus: "Allotted", allottedCommittee: committee || "", allottedPortfolio: portfolio || "" })}>{activeAction === "Allotment release" ? "Saving..." : active.allotmentStatus === "Allotted" ? "Save allotment changes" : "Release allotment"}</button>
             </div>
             {active.notes?.length ? <div className="notes-list"><h3>Admin notes</h3>{active.notes.map((item) => <p key={item.id}>{item.note}</p>)}</div> : null}
           </div>

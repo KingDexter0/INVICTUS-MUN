@@ -4,6 +4,18 @@ import { sanitizeOptionalImageUrl, sanitizeOptionalSocialUrl } from "../../lib/s
 
 export const dynamic = "force-dynamic";
 
+const localBoardPosters = [
+  { name: "Aditya Kiran", committee: "UNGA-ESS", position: "Chairperson", image: "/local-media/executive-board/aditya-kiran.png" },
+  { name: "Darshan Kamat", committee: "UNHRC", position: "Chairperson", image: "/local-media/executive-board/darshan-kamat.png" },
+  { name: "Sagar Samanta", committee: "UNHRC", position: "Vice-Chairperson", image: "/local-media/executive-board/sagar-samanta.png" },
+  { name: "Ganga Pramod", committee: "UNCSW", position: "Chairperson", image: "/local-media/executive-board/ganga-pramod.png" },
+  { name: "Mehek Singh", committee: "UNCSW", position: "Vice-Chairperson", image: "/local-media/executive-board/mehek-singh.png" },
+  { name: "Mohil Mehra", committee: "Arab League", position: "Chairperson", image: "/local-media/executive-board/mohil-mehra.png" },
+  { name: "Paarth Veturkar", committee: "Arab League", position: "Vice-Chairperson", image: "/local-media/executive-board/paarth-veturkar.png" },
+  { name: "Ishan Khare", committee: "International Press", position: "Head of Journalism", image: "/local-media/executive-board/ishan-khare.png" },
+  { name: "Preeti Pania", committee: "International Press", position: "Head of Photography", image: "/local-media/executive-board/preeti-pania.png" }
+];
+
 export default async function ExecutiveBoardPage() {
   const profiles = await prisma.eBProfile.findMany({
     orderBy: [{ committee: "asc" }, { position: "asc" }, { fullName: "asc" }]
@@ -49,12 +61,24 @@ export default async function ExecutiveBoardPage() {
                 ))}
               </div>
             </div>
-          )) : (
-            <div className="empty-panel">
-              <h2>Executive Board coming soon</h2>
-              <p>Profiles will appear here after the organizing team publishes them.</p>
-            </div>
-          )}
+          )) : null}
+        </section>
+        <section className="section eb-poster-section">
+          <div className="section-head">
+            <div><p className="eyebrow">BOARD POSTERS</p><h2>Committee leadership artwork.</h2></div>
+          </div>
+          <div className="eb-poster-grid">
+            {localBoardPosters.map((member) => (
+              <article className="eb-poster-card" key={member.image}>
+                <img src={member.image} alt={`${member.name}, ${member.position} for ${member.committee}`} />
+                <div>
+                  <span>{member.committee}</span>
+                  <h3>{member.name}</h3>
+                  <p>{member.position}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
       </main>
       <SiteFooter />

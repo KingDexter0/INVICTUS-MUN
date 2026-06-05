@@ -5,6 +5,17 @@ import { sanitizeOptionalImageUrl } from "../lib/security";
 
 export const dynamic = "force-dynamic";
 
+const galleryImages = [
+  { src: "/local-media/gallery/background-3.jpeg", alt: "Invictus MUN opening ceremony in the main auditorium", size: "wide" },
+  { src: "/local-media/gallery/formal-1.jpeg", alt: "Delegate speaking at the podium", size: "tall" },
+  { src: "/local-media/gallery/aesthetic-1.jpeg", alt: "Committee delegate during debate", size: "" },
+  { src: "/local-media/gallery/casual-1.jpeg", alt: "Delegates sharing a light moment", size: "" },
+  { src: "/local-media/gallery/background-5.jpeg", alt: "Delegates seated in the auditorium", size: "wide" },
+  { src: "/local-media/gallery/aesthetic-14.jpeg", alt: "Committee voting session", size: "" },
+  { src: "/local-media/gallery/formal-8.jpeg", alt: "Award presentation on stage", size: "" },
+  { src: "/local-media/gallery/casual-7.jpeg", alt: "Delegates posing between sessions", size: "" }
+];
+
 export default async function HomePage() {
   const testimonials = await prisma.testimonial.findMany({
     where: { isPublished: true },
@@ -34,12 +45,13 @@ export default async function HomePage() {
               <Link className="button ghost" href="/committees">Explore Committees</Link>
             </div>
             <div className="hero-proof">
-              <span><strong>500+</strong><small>Expected delegates</small></span>
-              <span><strong>7</strong><small>Committees</small></span>
+              <span><strong>750+</strong><small>Expected delegates</small></span>
+              <span><strong>13</strong><small>Committee tracks</small></span>
               <span><strong>QR</strong><small>Digital check-in</small></span>
             </div>
           </div>
-          <div className="hero-panel" aria-label="Conference snapshot">
+          <div className="hero-panel photo-panel" aria-label="Conference snapshot">
+            <img src="/local-media/gallery/background-3.jpeg" alt="Invictus MUN conference hall" />
             <div className="hero-card main-card">
               <span className="live-pill">Registrations Live</span>
               <h2>Invictus MUN 2026</h2>
@@ -55,9 +67,9 @@ export default async function HomePage() {
         </section>
 
         <section className="section stats-strip" aria-label="Conference statistics">
-          <article><strong>500+</strong><span>expected delegates</span></article>
-          <article><strong>7</strong><span>committees</span></article>
-          <article><strong>QR</strong><span>event check-in</span></article>
+          <article><strong>750+</strong><span>expected delegates</span></article>
+          <article><strong>13</strong><span>committee tracks</span></article>
+          <article><strong>QR</strong><span>attendance check-in</span></article>
           <article><strong>30 June</strong><span>registration deadline</span></article>
         </section>
 
@@ -72,12 +84,12 @@ export default async function HomePage() {
             </p>
             <p>
               The website is the official place where participants register, explore committees,
-              and check their delegate status.
+              access resources, contact the team, and check their delegate status.
             </p>
           </div>
           <div className="values-grid">
             <article><span>01</span><strong>Diplomacy</strong><p>Committee rooms designed for negotiation and principled debate.</p></article>
-            <article><span>02</span><strong>Research</strong><p>Guides and structured resources for better preparation.</p></article>
+            <article><span>02</span><strong>Research</strong><p>Portfolio matrix, study guides, and structured resources for better preparation.</p></article>
             <article><span>03</span><strong>Leadership</strong><p>Purpose-built workflows for delegates, EB, Secretariat, and admins.</p></article>
             <article><span>04</span><strong>Professionalism</strong><p>Transparent allotments, verified payments, and QR-based check-in.</p></article>
           </div>
@@ -114,7 +126,7 @@ export default async function HomePage() {
             <article><span>1</span><strong>Submit details</strong><p>Personal, committee, experience, and accommodation fields.</p></article>
             <article><span>2</span><strong>Pay with Razorpay</strong><p>Complete the registration fee securely from your dashboard.</p></article>
             <article><span>3</span><strong>Verification</strong><p>Successful Razorpay payments update your status automatically.</p></article>
-            <article><span>4</span><strong>Receive allotment</strong><p>Committee, portfolio, resources, and QR pass appear on the dashboard.</p></article>
+            <article><span>4</span><strong>Receive allotment</strong><p>Committee, portfolio matrix, resources, and QR pass appear on the dashboard.</p></article>
           </div>
         </section>
 
@@ -154,9 +166,22 @@ export default async function HomePage() {
           <div className="credibility-grid"><article><strong>30+</strong><span>institutions represented</span></article><article><strong>1.2K+</strong><span>community reach</span></article><article><strong>4.8/5</strong><span>delegate feedback</span></article><article><strong>2026</strong><span>next edition</span></article></div>
         </section>
 
+        <section className="section gallery-section" id="gallery">
+          <div className="section-head">
+            <div><p className="eyebrow">CONFERENCE GALLERY</p><h2>Inside the Invictus committee rooms.</h2></div>
+          </div>
+          <div className="gallery-grid">
+            {galleryImages.map((image) => (
+              <figure className={image.size ? `gallery-item ${image.size}` : "gallery-item"} key={image.src}>
+                <img src={image.src} alt={image.alt} />
+              </figure>
+            ))}
+          </div>
+        </section>
+
         <section className="section resources" id="resources">
-          <div><p className="eyebrow">RESOURCES</p><h2>Everything delegates need, released clearly.</h2><p>Committee information, rules of procedure, schedules, and policy documents are shared through the official website and dashboard as they are released.</p></div>
-          <div className="resource-list"><Link href="/registration"><strong>Delegate Registration</strong><span>Public</span></Link><Link href="/committees"><strong>Committee Information</strong><span>Public</span></Link><Link href="/dashboard"><strong>Delegate Dashboard</strong><span>Registered delegates</span></Link></div>
+          <div><p className="eyebrow">RESOURCES</p><h2>Everything delegates need, released clearly.</h2><p>Committee information, portfolio matrix files, study guides, EB resources, schedules, and policy documents are shared through the official website and delegate dashboard as they are released.</p></div>
+          <div className="resource-list"><Link href="/registration"><strong>Delegate Registration</strong><span>Public</span></Link><Link href="/committees"><strong>Committee Information</strong><span>Public</span></Link><Link href="/dashboard"><strong>Portfolio Matrix & Study Guides</strong><span>Dashboard</span></Link><Link href="/executive-board"><strong>E-Board Resources</strong><span>Published profiles</span></Link></div>
         </section>
 
         <section className="section faq" id="faq">
