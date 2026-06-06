@@ -86,6 +86,16 @@ export async function POST() {
             certificateNo
           }
         });
+
+        await prisma.registration.update({
+          where: { id: reg.id },
+          data: {
+            certificateReleased: true,
+            certificateReleasedAt: new Date(),
+            certificateUrl: `/certificates/${certificateNo}`
+          }
+        });
+
         created.push(reg.publicId);
       } catch (error) {
         console.error(`Failed to generate certificate for ${reg.publicId}:`, error);

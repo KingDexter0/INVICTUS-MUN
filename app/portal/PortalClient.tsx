@@ -30,6 +30,10 @@ type Registration = {
   allottedPortfolio?: string | null;
   checkedIn: boolean;
   checkedInAt?: string | null;
+  checkedInBy?: string | null;
+  certificateReleased: boolean;
+  certificateReleasedAt?: string | null;
+  certificateUrl?: string | null;
   notes?: Note[];
 };
 
@@ -1010,7 +1014,7 @@ export function PortalClient() {
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Check-in</th><th>Certificate</th><th></th></tr></thead>
+                  <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
                   <tbody>
                     {isLoading ? (
                       <tr><td colSpan={9}><div className="empty-state">Loading registrations...</div></td></tr>
@@ -1024,22 +1028,42 @@ export function PortalClient() {
                         <td><span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span></td>
                         <td>
                           <span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>
-                            {registration.checkedIn ? "Checked In" : "Awaiting"}
+                            {registration.checkedIn ? "Checked In" : "Not Checked In"}
                           </span>
                         </td>
                         <td>
-                          {(() => {
-                            const hasCert = adminCertificates.some(
-                              (c) => c.registrationId === registration.id && c.title === "Certificate of Participation"
-                            );
-                            return (
-                              <span className={`status ${hasCert ? "verified" : "pending"}`}>
-                                {hasCert ? "Issued" : "Not issued"}
-                              </span>
-                            );
-                          })()}
+                          <span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>
+                            {registration.certificateReleased ? "Released" : "Not Released"}
+                          </span>
                         </td>
-                        <td><button className="row-action" onClick={() => openRegistration(registration)}>Review</button></td>
+                        <td>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
+                            {registration.certificateReleased ? (
+                              <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>
+                                Released
+                              </button>
+                            ) : registration.checkedIn ? (
+                              <button 
+                                className="button primary small-btn" 
+                                disabled={isSavingOps}
+                                onClick={() => issueParticipationCertForDelegate(registration.publicId)}
+                                style={{ fontSize: "0.8em", padding: "4px 8px" }}
+                              >
+                                Release Certificate
+                              </button>
+                            ) : (
+                              <button 
+                                className="button secondary small-btn" 
+                                disabled 
+                                title="Certificate cannot be released because this delegate has not checked in yet."
+                                style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}
+                              >
+                                Release Certificate
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     )) : <tr><td colSpan={9}><div className="empty-state">{registrations.length ? "No registrations match this view. Clear filters or search again." : "No registrations yet. New delegate submissions will appear here."}</div></td></tr>}
                   </tbody>
@@ -1289,24 +1313,32 @@ export function PortalClient() {
             <div className="dialog-head"><div><p className="eyebrow">REGISTRATION DETAIL</p><h2>{active.name}</h2></div><button onClick={() => setActive(null)}>x</button></div>
             <div className="detail-body">
               <div><strong>Delegate ID</strong><span>{active.publicId}</span></div>
+              <div><strong>Name</strong><span>{active.name}</span></div>
               <div><strong>Email</strong><span>{active.email}</span></div>
               <div><strong>Phone</strong><span>{active.phone}</span></div>
-              <div><strong>Institution</strong><span>{active.institution || "-"}</span></div>
-              <div><strong>Preference 1</strong><span>{active.committee1} / {active.portfolio1 || "No portfolio"}</span></div>
+              <div><strong>Institution/School</strong><span>{active.institution || "Independent delegate"}</span></div>
+              <div><strong>Committee</strong><span>{active.allottedCommittee || active.committee1}</span></div>
+              <div><strong>Portfolio</strong><span>{active.allottedPortfolio || active.portfolio1 || "No portfolio"}</span></div>
               <div><strong>Payment method</strong><span>{active.paymentProofUrl ? <a href={active.paymentProofUrl} target="_blank" rel="noopener noreferrer">Open legacy proof</a> : "Razorpay online payment"}</span></div>
-              <div><strong>Check-in Status</strong><span>{active.checkedIn ? `Checked In (${active.checkedInAt ? new Date(active.checkedInAt).toLocaleDateString() : ""})` : "Not checked in"}</span></div>
               <div>
-                <strong>Certificate</strong>
-                {(() => {
-                  const hasCert = adminCertificates.some(
-                    (c) => c.registrationId === active.id && c.title === "Certificate of Participation"
-                  );
-                  return (
-                    <span className={`status ${hasCert ? "verified" : "pending"}`}>
-                      {hasCert ? "Issued" : "Not issued"}
+                <strong>Check-in Status</strong>
+                <span>
+                  {active.checkedIn ? (
+                    <span className="status verified">
+                      Checked In {active.checkedInBy ? `(by ${active.checkedInBy})` : ""}
                     </span>
-                  );
-                })()}
+                  ) : (
+                    <span className="status pending">Not Checked In</span>
+                  )}
+                </span>
+              </div>
+              <div>
+                <strong>Certificate Status</strong>
+                <span>
+                  <span className={`status ${active.certificateReleased ? "verified" : "pending"}`}>
+                    {active.certificateReleased ? "Released" : "Not Released"}
+                  </span>
+                </span>
               </div>
               <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
             </div>
@@ -1318,24 +1350,31 @@ export function PortalClient() {
             </div>
             <div className="dialog-actions action-wrap">
               <button className="button secondary" onClick={() => setActive(null)}>Close</button>
-              {(() => {
-                const hasCert = adminCertificates.some(
-                  (c) => c.registrationId === active.id && c.title === "Certificate of Participation"
-                );
-                const isEligible = active.checkedIn && active.registrationStatus === "Approved" && active.paymentStatus === "Verified" && active.allotmentStatus === "Allotted";
-                if (!hasCert && isEligible) {
-                  return (
-                    <button 
-                      className="button primary" 
-                      disabled={isSavingOps}
-                      onClick={() => issueParticipationCertForDelegate(active.publicId)}
-                    >
-                      {isSavingOps ? "Issuing..." : "Issue Participation Certificate"}
-                    </button>
-                  );
-                }
-                return null;
-              })()}
+              {active.certificateReleased ? (
+                <button className="button primary" disabled style={{ opacity: 0.7 }}>Released</button>
+              ) : active.checkedIn ? (
+                <button 
+                  className="button primary" 
+                  disabled={isSavingOps}
+                  onClick={() => issueParticipationCertForDelegate(active.publicId)}
+                >
+                  {isSavingOps ? "Releasing..." : "Release Certificate"}
+                </button>
+              ) : (
+                <div style={{ display: "inline-flex", flexDirection: "column", gap: "4px" }}>
+                  <button 
+                    className="button secondary" 
+                    disabled 
+                    title="Certificate cannot be released because this delegate has not checked in yet."
+                    style={{ cursor: "not-allowed", opacity: 0.5 }}
+                  >
+                    Release Certificate
+                  </button>
+                  <small style={{ color: "var(--text-danger)", fontSize: "0.8em" }}>
+                    Certificate cannot be released because this delegate has not checked in yet.
+                  </small>
+                </div>
+              )}
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment rejection", { paymentStatus: "Rejected", registrationStatus: "Action Needed" })}>{activeAction === "Payment rejection" ? "Saving..." : "Reject payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment verification", { paymentStatus: "Verified" })}>{activeAction === "Payment verification" ? "Saving..." : "Verify payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Registration approval", { paymentStatus: "Verified", registrationStatus: "Approved" })}>{activeAction === "Registration approval" ? "Saving..." : "Approve"}</button>

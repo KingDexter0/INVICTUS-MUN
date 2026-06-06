@@ -25,9 +25,17 @@ export async function POST(request: Request) {
 
     const certificateTitle = String(title || "Certificate of Participation").trim();
 
+    // Enforce check-in validation for certificate release
+    if (!registration.checkedIn) {
+      return NextResponse.json(
+        { error: "Certificate can only be released after delegate check-in." },
+        { status: 403 }
+      );
+    }
+
     // Check-in and status verification for Certificate of Participation
     if (certificateTitle === "Certificate of Participation") {
-      if (!registration.checkedIn || !registration.checkedInAt) {
+      if (!registration.checkedInAt) {
         return NextResponse.json({ error: "Delegate has not checked in." }, { status: 400 });
       }
       if (registration.registrationStatus !== "Approved") {
@@ -48,6 +56,17 @@ export async function POST(request: Request) {
         certificateNo: `CERT-${registration.publicId}-${Date.now().toString(36).toUpperCase()}`
       }
     });
+
+    // Update registration audit fields
+    await prisma.registration.update({
+      where: { id: registration.id },
+      data: {
+        certificateReleased: true,
+        certificateReleasedAt: new Date(),
+        certificateUrl: `/certificates/${certificate.certificateNo}`
+      }
+    });
+
     return NextResponse.json({ certificate });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") return NextResponse.json({ error: "Admin access required." }, { status: 401 });

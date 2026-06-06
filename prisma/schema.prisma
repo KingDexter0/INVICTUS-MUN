@@ -37,6 +37,10 @@ model Registration {
   allottedPortfolio    String?
   checkedIn            Boolean     @default(false)
   checkedInAt          DateTime?
+  checkedInBy          String?
+  certificateReleased  Boolean     @default(false)
+  certificateReleasedAt DateTime?
+  certificateUrl       String?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
   notes                AdminNote[]

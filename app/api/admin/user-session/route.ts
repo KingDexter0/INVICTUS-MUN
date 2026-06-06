@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     if (!admin || !(await compare(String(password || ""), admin.passwordHash))) {
       return NextResponse.json({ error: "Invalid admin email or password." }, { status: 401 });
     }
-    setAdminCookie(createAdminToken());
+    setAdminCookie(createAdminToken(admin.email));
     return NextResponse.json({ ok: true, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
   } catch (error) {
     console.error(error);

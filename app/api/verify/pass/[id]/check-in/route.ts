@@ -3,6 +3,7 @@ import type { Registration } from "@prisma/client";
 import { assertCheckInAccess } from "../../../../../../lib/checkin";
 import { prisma } from "../../../../../../lib/prisma";
 import { serializeRegistration } from "../../../../../../lib/registrations";
+import { getAdminEmailFromToken } from "../../../../../../lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -64,11 +65,35 @@ export async function POST(_request: Request, { params }: { params: { id: string
       );
     }
 
+    let checkedInBy: string | null = null;
+    try {
+      const body = await _request.json().catch(() => null);
+      if (body && body.checkedInBy) {
+        checkedInBy = String(body.checkedInBy).trim();
+      }
+    } catch {
+      // ignore
+    }
+
+    if (!checkedInBy) {
+      try {
+        const adminEmail = getAdminEmailFromToken();
+        if (adminEmail) {
+          checkedInBy = adminEmail;
+        } else {
+          checkedInBy = "Staff";
+        }
+      } catch {
+        checkedInBy = "Staff";
+      }
+    }
+
     const updated = await prisma.registration.update({
       where: { publicId: params.id },
       data: {
         checkedIn: true,
-        checkedInAt: new Date()
+        checkedInAt: new Date(),
+        checkedInBy
       }
     });
 
