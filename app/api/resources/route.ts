@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import { assertAdmin } from "../../../lib/admin";
-import { uploadResourceImageFile } from "../../../lib/cloudinary";
 import { sendResourceEmail } from "../../../lib/mail";
 import { prisma } from "../../../lib/prisma";
 import { operationsEmitter } from "../../../lib/events";
 
 export const dynamic = "force-dynamic";
+
+const ALLOWED_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+]);
+
+const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"];
 
 function serializeResource(resource: {
   id: string;
@@ -30,7 +40,6 @@ export async function GET() {
     const resources = await prisma.resource.findMany({
       orderBy: { createdAt: "desc" }
     });
-
     return NextResponse.json({ resources: resources.map(serializeResource) });
   } catch (error) {
     console.error(error);
@@ -41,6 +50,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     assertAdmin();
+
     const formData = await request.formData();
     const title = String(formData.get("title") || "").trim();
     const description = String(formData.get("description") || "").trim();
@@ -61,35 +71,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Upload a resource file." }, { status: 400 });
     }
 
-    const isPdf =
-      file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf");
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    const hasAllowedType = ALLOWED_TYPES.has(file.type);
+    const hasAllowedExt = ALLOWED_EXTENSIONS.includes(ext);
 
-    const isDoc =
-      file.type === "application/msword" ||
-      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      file.name.toLowerCase().endsWith(".doc") ||
-      file.name.toLowerCase().endsWith(".docx");
-
-    if (!isPdf && !isDoc) {
+    if (!hasAllowedType && !hasAllowedExt) {
       return NextResponse.json(
-        { error: "Only PDF and DOC/DOCX files are supported." },
+        { error: "Only PDF, DOC/DOCX, PPT/PPTX, and XLS/XLSX files are supported." },
         { status: 400 }
       );
     }
 
-    let fileUrl: string;
-    let filePublicId: string;
-
-    // Upload PDF or DOC/DOCX to Vercel Blob
-    const { put } = await import("@vercel/blob");
+    // Upload to Vercel Blob (public read, authenticated write)
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
     const blob = await put(`resources/${Date.now()}-${safeName}`, file, {
       access: "public",
-      contentType: file.type || (isPdf ? "application/pdf" : "application/msword")
+      contentType: file.type || "application/octet-stream",
+      addRandomSuffix: false
     });
-    fileUrl = blob.url;
-    filePublicId = blob.pathname;
 
     const resource = await prisma.resource.create({
       data: {
@@ -97,32 +96,13 @@ export async function POST(request: Request) {
         description: description || null,
         category,
         accessLevel,
-        fileUrl,
-        filePublicId
+        fileUrl: blob.url,
+        filePublicId: blob.pathname
       }
     });
 
-    const recipients = await prisma.registration.findMany({
-      where: {
-        ...(accessLevel === "Approved" ? { registrationStatus: "Approved" } : {}),
-        ...(accessLevel === "Allotted" ? { allotmentStatus: "Allotted" } : {})
-      },
-      select: { email: true, name: true, publicId: true },
-      take: 500
-    });
-
-    void Promise.all(
-      recipients.map((recipient) =>
-        sendResourceEmail({
-          to: recipient.email,
-          name: recipient.name,
-          title: resource.title,
-          category: resource.category,
-          accessLevel: resource.accessLevel,
-          dashboardPath: `/dashboard?id=${encodeURIComponent(recipient.publicId)}`
-        })
-      )
-    );
+    // Notify eligible delegates across both tables (fire-and-forget)
+    void notifyEligibleDelegates(resource.title, resource.category, resource.accessLevel);
 
     operationsEmitter.emit("update", {
       type: "operations:refresh-needed",
@@ -134,10 +114,69 @@ export async function POST(request: Request) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });
     }
-    if (error instanceof Error && error.message.includes("Cloudinary is not configured")) {
-      return NextResponse.json({ error: "Resource upload is not configured. Add Cloudinary credentials before uploading files." }, { status: 503 });
-    }
     console.error(error);
     return NextResponse.json({ error: "Could not save resource." }, { status: 500 });
+  }
+}
+
+/**
+ * Sends resource notification emails to eligible individuals and delegates
+ * based on the resource's access level. Runs fire-and-forget.
+ */
+async function notifyEligibleDelegates(title: string, category: string, accessLevel: string) {
+  try {
+    // Build access-level filters
+    const individualWhere: Record<string, unknown> = {};
+    const delegateWhere: Record<string, unknown> = {};
+
+    if (accessLevel === "Approved") {
+      individualWhere.registrationStatus = "Approved";
+      delegateWhere.delegation = { registrationStatus: "Approved" };
+    } else if (accessLevel === "Allotted") {
+      individualWhere.allotmentStatus = "Allotted";
+      delegateWhere.allotmentStatus = "Allotted";
+    }
+    // "Public" and "Registered" → no extra filter, send to all
+
+    const [individuals, delegates] = await Promise.all([
+      prisma.individualRegistration.findMany({
+        where: { email: { not: "" }, ...individualWhere },
+        select: { email: true, name: true, publicId: true },
+        take: 500
+      }),
+      prisma.delegationDelegate.findMany({
+        where: {
+          email: { not: null },
+          ...delegateWhere
+        },
+        select: { email: true, name: true, publicId: true },
+        take: 500
+      })
+    ]);
+
+    const recipients: Array<{ email: string; name: string; publicId: string }> = [
+      ...individuals,
+      // DelegationDelegate.email is nullable
+      ...delegates.filter((d) => Boolean(d.email)).map((d) => ({
+        email: d.email!,
+        name: d.name,
+        publicId: d.publicId
+      }))
+    ];
+
+    await Promise.allSettled(
+      recipients.map((recipient) =>
+        sendResourceEmail({
+          to: recipient.email,
+          name: recipient.name,
+          title,
+          category,
+          accessLevel,
+          dashboardPath: `/dashboard?id=${encodeURIComponent(recipient.publicId)}`
+        })
+      )
+    );
+  } catch (err) {
+    console.error("[resource notify] Failed to send resource emails:", err);
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { del } from "@vercel/blob";
 import { assertAdmin } from "../../../../lib/admin";
-import { deleteCloudinaryFile } from "../../../../lib/cloudinary";
 import { prisma } from "../../../../lib/prisma";
 import { operationsEmitter } from "../../../../lib/events";
 
@@ -27,20 +27,15 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
       return NextResponse.json({ error: "Resource not found." }, { status: 404 });
     }
 
+    // Delete database record first
     await prisma.resource.delete({
       where: { id: params.id }
     });
 
+    // Delete from Vercel Blob storage
     if (isVercelBlobUrl(resource.fileUrl)) {
-      // Delete from Vercel Blob storage
-      const { del } = await import("@vercel/blob");
       await del(resource.fileUrl).catch((error: unknown) => {
-        console.error("Could not delete Vercel Blob resource", error);
-      });
-    } else {
-      // Delete from Cloudinary
-      await deleteCloudinaryFile(resource.filePublicId).catch((error: unknown) => {
-        console.error("Could not delete Cloudinary resource", error);
+        console.error("[blob] Could not delete resource from Vercel Blob:", error);
       });
     }
 

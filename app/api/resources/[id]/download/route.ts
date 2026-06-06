@@ -1,24 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
-import { isSafeExternalUrl } from "../../../../../lib/security";
 
 export const dynamic = "force-dynamic";
 
-const contentTypeExtensions: Record<string, string> = {
-  "application/pdf": "pdf",
-  "application/msword": "doc",
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "text/plain": "txt",
-  "text/csv": "csv",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx"
-};
-
-function contentTypeKey(contentType: string | null) {
-  return String(contentType || "").split(";")[0].trim().toLowerCase();
+function isVercelBlobUrl(url: string) {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.endsWith("vercel-storage.com") || hostname.endsWith("public.blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
 }
 
 function cleanFilenamePart(value: string) {
@@ -39,55 +30,8 @@ function extensionFromUrl(fileUrl: string) {
   }
 }
 
-function extensionFromContentDisposition(contentDisposition: string | null) {
-  if (!contentDisposition) {
-    return "";
-  }
-
-  const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
-  if (!filenameMatch?.[1]) {
-    return "";
-  }
-
-  try {
-    return extensionFromUrl(`https://invictus.local/${decodeURIComponent(filenameMatch[1].replace(/"/g, ""))}`);
-  } catch {
-    return extensionFromUrl(`https://invictus.local/${filenameMatch[1].replace(/"/g, "")}`);
-  }
-}
-
 function cleanBaseName(resource: { title: string; category: string }) {
   return [resource.category, resource.title].map(cleanFilenamePart).filter(Boolean).join("-") || "invictus-resource";
-}
-
-function cloudinaryRawCandidate(fileUrl: string) {
-  if (!fileUrl.includes("/image/upload/")) {
-    return "";
-  }
-
-  return fileUrl.replace("/image/upload/", "/raw/upload/");
-}
-
-function withoutExtensionCandidate(fileUrl: string) {
-  try {
-    const url = new URL(fileUrl);
-    url.pathname = url.pathname.replace(/\.[a-z0-9]{2,5}$/i, "");
-    return url.toString();
-  } catch {
-    return "";
-  }
-}
-
-function downloadCandidates(fileUrl: string) {
-  const rawCandidate = cloudinaryRawCandidate(fileUrl);
-  const rawWithoutExtension = rawCandidate ? withoutExtensionCandidate(rawCandidate) : "";
-  const originalWithoutExtension = withoutExtensionCandidate(fileUrl);
-  const looksLikePdf = extensionFromUrl(fileUrl) === "pdf";
-  const candidates = looksLikePdf
-    ? [rawCandidate, rawWithoutExtension, fileUrl, originalWithoutExtension]
-    : [fileUrl, rawCandidate, rawWithoutExtension, originalWithoutExtension];
-
-  return Array.from(new Set(candidates.filter(Boolean)));
 }
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
@@ -97,40 +41,41 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       select: { title: true, category: true, fileUrl: true }
     });
 
-    if (!resource || !isSafeExternalUrl(resource.fileUrl)) {
+    if (!resource || !resource.fileUrl) {
       return NextResponse.json({ error: "Resource not found." }, { status: 404 });
     }
 
     const cleanName = cleanBaseName(resource);
-    const candidateUrls = downloadCandidates(resource.fileUrl);
-    let upstream: Response | null = null;
+    const extension = extensionFromUrl(resource.fileUrl) || "file";
+    const filename = `${cleanName}.${extension}`;
 
-    for (const url of candidateUrls) {
-      const response = await fetch(url, { cache: "no-store" }).catch(() => null);
-      const responseType = contentTypeKey(response?.headers.get("content-type") || "");
-      if (response?.ok && response.body && responseType !== "application/json") {
-        upstream = response;
-        break;
+    // For Vercel Blob URLs: proxy the file so we can force a download filename.
+    // Blob URLs are public and fast — fetch and stream with correct headers.
+    if (isVercelBlobUrl(resource.fileUrl)) {
+      const upstream = await fetch(resource.fileUrl, { cache: "no-store" });
+      if (!upstream.ok || !upstream.body) {
+        return NextResponse.json({ error: "Resource is temporarily unavailable." }, { status: 502 });
       }
+      const fileBuffer = await upstream.arrayBuffer();
+      return new NextResponse(fileBuffer, {
+        headers: {
+          "Content-Type": upstream.headers.get("content-type") || "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+          "Content-Length": String(fileBuffer.byteLength),
+          "Cache-Control": "private, max-age=300"
+        }
+      });
     }
 
-    if (!upstream) {
+    // Fallback for legacy Cloudinary URLs (existing resources in DB)
+    const upstream = await fetch(resource.fileUrl, { cache: "no-store" }).catch(() => null);
+    if (!upstream?.ok || !upstream.body) {
       return NextResponse.json({ error: "Resource is temporarily unavailable." }, { status: 502 });
     }
-
-    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
-    const contentDisposition = upstream.headers.get("content-disposition");
-    const extension =
-      extensionFromUrl(resource.fileUrl) ||
-      extensionFromContentDisposition(contentDisposition) ||
-      contentTypeExtensions[contentTypeKey(contentType)] ||
-      "file";
-    const filename = `${cleanName}.${extension}`;
     const fileBuffer = await upstream.arrayBuffer();
-
     return new NextResponse(fileBuffer, {
       headers: {
-        "Content-Type": "application/octet-stream",
+        "Content-Type": upstream.headers.get("content-type") || "application/octet-stream",
         "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
         "Content-Length": String(fileBuffer.byteLength),
         "Cache-Control": "private, max-age=300"
@@ -138,6 +83,6 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Resources are temporarily unavailable. Please try again later." }, { status: 500 });
+    return NextResponse.json({ error: "Resources are temporarily unavailable." }, { status: 500 });
   }
 }
