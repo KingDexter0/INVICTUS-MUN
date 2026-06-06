@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const contentTypeExtensions: Record<string, string> = {
   "application/pdf": "pdf",
+  "application/msword": "doc",
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",

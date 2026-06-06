@@ -1096,7 +1096,7 @@ export function PortalClient() {
                     <option>Allotted</option>
                   </select>
                 </div>
-                <input name="file" type="file" required />
+                <input name="file" type="file" accept=".pdf,.doc,.docx" required />
                 <button className="button secondary full" type="submit" disabled={isUploadingResource}>{isUploadingResource ? "Uploading..." : "Upload resource"}</button>
               </form>
               <div className="resource-admin-list">

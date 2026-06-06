@@ -64,14 +64,15 @@ export async function POST(request: Request) {
       file.type === "application/pdf" ||
       file.name.toLowerCase().endsWith(".pdf");
 
-    const isImage =
-      file.type === "image/jpeg" ||
-      file.type === "image/png" ||
-      file.type === "image/webp";
+    const isDoc =
+      file.type === "application/msword" ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.name.toLowerCase().endsWith(".doc") ||
+      file.name.toLowerCase().endsWith(".docx");
 
-    if (!isPdf && !isImage) {
+    if (!isPdf && !isDoc) {
       return NextResponse.json(
-        { error: "Only PDF, JPG, PNG, and WEBP files are supported." },
+        { error: "Only PDF and DOC/DOCX files are supported." },
         { status: 400 }
       );
     }
@@ -79,25 +80,15 @@ export async function POST(request: Request) {
     let fileUrl: string;
     let filePublicId: string;
 
-    if (isPdf) {
-      // Upload PDF to Vercel Blob — avoids Cloudinary PDF delivery failures
-      const { put } = await import("@vercel/blob");
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-      const blob = await put(`resources/${Date.now()}-${safeName}`, file, {
-        access: "public",
-        contentType: file.type || "application/pdf"
-      });
-      fileUrl = blob.url;
-      filePublicId = blob.pathname;
-    } else {
-      // Upload image to Cloudinary — existing proven path, untouched
-      const upload = await uploadResourceImageFile(file);
-      if (!upload) {
-        return NextResponse.json({ error: "Resource file could not be uploaded." }, { status: 500 });
-      }
-      fileUrl = upload.secure_url;
-      filePublicId = upload.public_id;
-    }
+    // Upload PDF or DOC/DOCX to Vercel Blob
+    const { put } = await import("@vercel/blob");
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+    const blob = await put(`resources/${Date.now()}-${safeName}`, file, {
+      access: "public",
+      contentType: file.type || (isPdf ? "application/pdf" : "application/msword")
+    });
+    fileUrl = blob.url;
+    filePublicId = blob.pathname;
 
     const resource = await prisma.resource.create({
       data: {
