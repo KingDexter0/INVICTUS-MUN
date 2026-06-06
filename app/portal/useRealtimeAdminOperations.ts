@@ -123,7 +123,14 @@ export function useRealtimeAdminOperations({
       }, 5000);
     }
 
-    startSSE();
+    const isLocal = typeof window !== "undefined" && 
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+    if (isLocal) {
+      startSSE();
+    } else {
+      startPolling();
+    }
 
     return () => {
       if (eventSourceRef.current) {
