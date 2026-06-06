@@ -194,12 +194,12 @@ export function DashboardClient() {
               <div className="qr-pass">
                 {hasAllotment ? (
                   <>
-                    <Link className="qr-link" href={`/verify/pass/${registration.publicId}`}>
+                    <div className="qr-link">
                       <img className="qr-code-image" src={`/api/qr/${registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
                       <strong>{registration.name}</strong>
                       <span>{registration.allottedCommittee} - {registration.allottedPortfolio}</span>
-                      <small>/verify/pass/{registration.publicId}</small>
-                    </Link>
+                      <small style={{ color: "var(--muted)" }}>/verify/pass/{registration.publicId}</small>
+                    </div>
                   </>
                 ) : (
                   <><div className="qr-box locked">--</div><strong>QR pass locked</strong><span>Approval and allotment required.</span></>
