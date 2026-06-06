@@ -10,17 +10,46 @@ export async function GET(
   try {
     const { certificateNo } = params;
 
-    // Fetch certificate with registration
-    const certificate = await prisma.certificate.findUnique({
+    // Resolve delegate name, publicId, committee, portfolio, checkedInAt, issuedAt
+    // from whichever certificate table holds this certificateNo
+    let delegateName = "";
+    let publicId = "";
+    let committee = "";
+    let portfolio = "";
+    let checkedInAt: Date | null = null;
+    let issuedAt: Date = new Date();
+
+    const individualCert = await prisma.individualCertificate.findUnique({
       where: { certificateNo },
       include: { registration: true }
     });
 
-    if (!certificate) {
-      return new Response("Certificate not found", { status: 404 });
-    }
+    if (individualCert) {
+      const reg = individualCert.registration;
+      delegateName = reg.name;
+      publicId = reg.publicId;
+      committee = reg.allottedCommittee || reg.committee1 || "";
+      portfolio = reg.allottedPortfolio || reg.portfolio1 || "Delegate";
+      checkedInAt = reg.checkedInAt;
+      issuedAt = individualCert.issuedAt;
+    } else {
+      const delegateCert = await prisma.delegateCertificate.findUnique({
+        where: { certificateNo },
+        include: { delegate: { include: { delegation: true } } }
+      });
 
-    const reg = certificate.registration;
+      if (!delegateCert) {
+        return new Response("Certificate not found", { status: 404 });
+      }
+
+      const del = delegateCert.delegate;
+      delegateName = del.name;
+      publicId = del.publicId;
+      committee = del.allottedCommittee || del.committee1 || del.delegation?.delegationName || "";
+      portfolio = del.allottedPortfolio || del.portfolio1 || "Delegate";
+      checkedInAt = del.checkedInAt;
+      issuedAt = delegateCert.issuedAt;
+    }
 
     // Create PDF
     const pdfDoc = await PDFDocument.create();
@@ -42,33 +71,13 @@ export async function GET(
     const lightGray = rgb(107 / 255, 114 / 255, 128 / 255);
 
     // 1. Draw Cream Background
-    page.drawRectangle({
-      x: 0,
-      y: 0,
-      width,
-      height,
-      color: creamColor
-    });
+    page.drawRectangle({ x: 0, y: 0, width, height, color: creamColor });
 
     // 2. Outer Purple Border
-    page.drawRectangle({
-      x: 20,
-      y: 20,
-      width: width - 40,
-      height: height - 40,
-      borderColor: purpleColor,
-      borderWidth: 3
-    });
+    page.drawRectangle({ x: 20, y: 20, width: width - 40, height: height - 40, borderColor: purpleColor, borderWidth: 3 });
 
     // 3. Inner Gold Border
-    page.drawRectangle({
-      x: 26,
-      y: 26,
-      width: width - 52,
-      height: height - 52,
-      borderColor: goldColor,
-      borderWidth: 1.5
-    });
+    page.drawRectangle({ x: 26, y: 26, width: width - 52, height: height - 52, borderColor: goldColor, borderWidth: 1.5 });
 
     // Helpers
     const drawCenteredText = (text: string, size: number, y: number, font: any, color: any) => {
@@ -95,39 +104,28 @@ export async function GET(
     drawCenteredText("This certifies that", 16, 350, fontOblique, darkGray);
 
     // Delegate Name
-    drawCenteredText(reg.name, 28, 300, fontBold, purpleColor);
+    drawCenteredText(delegateName, 28, 300, fontBold, purpleColor);
 
     // Participation details
-    const committeeStr = reg.allottedCommittee || reg.committee1;
-    const portfolioStr = reg.allottedPortfolio || reg.portfolio1 || "Delegate";
     drawCenteredText(
       "has successfully participated in the conference in the committee",
-      15,
-      250,
-      fontRegular,
-      darkGray
+      15, 250, fontRegular, darkGray
     );
-    drawCenteredText(
-      `${committeeStr} as ${portfolioStr}`,
-      16,
-      220,
-      fontBold,
-      goldColor
-    );
+    drawCenteredText(`${committee} as ${portfolio}`, 16, 220, fontBold, goldColor);
 
     // --- Metadata Grid ---
     const colY = 110;
 
     const options: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
-    const checkedInDate = reg.checkedInAt ? new Date(reg.checkedInAt) : new Date();
+    const checkedInDate = checkedInAt ? new Date(checkedInAt) : new Date();
     const checkedInStr = checkedInDate.toLocaleDateString("en-US", options);
-    const issuedStr = new Date(certificate.issuedAt).toLocaleDateString("en-US", options);
+    const issuedStr = new Date(issuedAt).toLocaleDateString("en-US", options);
 
     // Column 1: Verification & Registration Code
     page.drawText("REGISTRATION CODE", { x: 70, y: colY + 30, size: 10, font: fontBold, color: lightGray });
-    page.drawText(reg.publicId, { x: 70, y: colY + 12, size: 12, font: fontRegular, color: darkGray });
+    page.drawText(publicId, { x: 70, y: colY + 12, size: 12, font: fontRegular, color: darkGray });
     page.drawText("VERIFICATION CODE", { x: 70, y: colY - 10, size: 10, font: fontBold, color: lightGray });
-    page.drawText(certificate.certificateNo, { x: 70, y: colY - 28, size: 9, font: fontRegular, color: darkGray });
+    page.drawText(certificateNo, { x: 70, y: colY - 28, size: 9, font: fontRegular, color: darkGray });
 
     // Column 2: Check-in Details & Issuance
     const midX = width / 2;
@@ -140,7 +138,7 @@ export async function GET(
     drawCenteredGridText("DATE OF ISSUANCE", 10, colY - 10, fontBold, lightGray);
     drawCenteredGridText(issuedStr, 12, colY - 28, fontRegular, darkGray);
 
-    // Column 3: Signature Placeholder / Verification Note
+    // Column 3: Verification Note
     const rightAlignX = width - 270;
     page.drawText("VERIFICATION STATUS", { x: rightAlignX, y: colY + 30, size: 10, font: fontBold, color: lightGray });
     page.drawText("Officially Issued & Verified", { x: rightAlignX, y: colY + 12, size: 12, font: fontBold, color: purpleColor });
@@ -157,7 +155,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="invictus-participation-${reg.publicId}.pdf"`,
+        "Content-Disposition": `inline; filename="invictus-participation-${publicId}.pdf"`,
         "Content-Length": pdfBytes.length.toString()
       }
     });
