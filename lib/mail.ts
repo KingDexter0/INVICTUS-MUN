@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
-import { getDelegateDashboardUrl } from "./url";
+import { getDelegateDashboardUrl, getCertificateUrl, getBaseUrl } from "./url";
 
 function isTestMode() {
   return process.env.EMAIL_TEST_MODE === "true";
@@ -27,9 +27,7 @@ function baseTemplate({ heading, name, publicId, action, dashboardPath = "/dashb
   dashboardPath?: string;
   details?: Array<[string, string | null | undefined]>;
 }) {
-  const envUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:4173";
-  const cleanedEnvUrl = envUrl.replace(/\/$/, "");
-  const dashboardUrl = `${cleanedEnvUrl}${dashboardPath}`;
+  const dashboardUrl = `${getBaseUrl()}${dashboardPath}`;
   const rows = details
     .filter(([, value]) => Boolean(value))
     .map(([label, value]) => `<p style="margin:6px 0;color:#565061"><strong>${label}:</strong> ${value}</p>`)
@@ -342,9 +340,7 @@ export async function sendResourceEmail(input: {
   accessLevel: string;
   dashboardPath?: string;
 }) {
-  const envUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:4173";
-  const cleanedEnvUrl = envUrl.replace(/\/$/, "");
-  const dashboardUrl = `${cleanedEnvUrl}${input.dashboardPath || "/dashboard"}`;
+  const dashboardUrl = `${getBaseUrl()}${input.dashboardPath || "/dashboard"}`;
   return sendEmail({
     to: input.to,
     subject: `Invictus MUN resource uploaded: ${input.title}`,

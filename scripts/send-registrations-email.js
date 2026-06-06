@@ -27,7 +27,7 @@ async function main() {
   let user = process.env.SMTP_USER;
   let pass = process.env.SMTP_PASS;
   let fromEmail = process.env.SMTP_FROM || user;
-  let siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:3000";
+  let siteUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
 
   // Read from .env file directly
   try {
@@ -41,7 +41,7 @@ async function main() {
       user = user || envContent.match(/SMTP_USER="?([^"\n\r]+)"?/)?.[1];
       pass = pass || envContent.match(/SMTP_PASS="?([^"\n\r]+)"?/)?.[1];
       fromEmail = fromEmail || envContent.match(/SMTP_FROM="?([^"\n\r]+)"?/)?.[1];
-      siteUrl = siteUrl || envContent.match(/NEXT_PUBLIC_SITE_URL="?([^"\n\r]+)"?/)?.[1];
+      siteUrl = siteUrl || envContent.match(/APP_URL="?([^"\n\r]+)"?/)?.[1] || envContent.match(/NEXT_PUBLIC_APP_URL="?([^"\n\r]+)"?/)?.[1];
     }
   } catch (err) {
     console.warn("Could not read .env file:", err.message);
@@ -49,6 +49,24 @@ async function main() {
 
   if (!host || !user || !pass) {
     console.error("Error: SMTP_HOST, SMTP_USER, or SMTP_PASS environment variable is missing.");
+    process.exit(1);
+  }
+
+  // Validate APP_URL before sending any emails
+  if (!siteUrl) {
+    console.error("Error: APP_URL is not set. Cannot send emails with valid dashboard links.");
+    console.error("  Set APP_URL=https://your-production-domain.com in your .env file.");
+    process.exit(1);
+  }
+
+  // Normalize scheme (Vercel injects bare hostnames without https://)
+  if (!siteUrl.startsWith("http")) siteUrl = `https://${siteUrl}`;
+  siteUrl = siteUrl.replace(/\/$/, "");
+
+  if (siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1")) {
+    console.error(`Error: APP_URL is set to a localhost address: ${siteUrl}`);
+    console.error("  Refusing to send emails with broken links.");
+    console.error("  Set APP_URL=https://your-production-domain.com in your .env or Vercel.");
     process.exit(1);
   }
 
@@ -169,7 +187,7 @@ async function main() {
           </div>
           <p style="font-size:16px;line-height:1.7">You can access your delegate dashboard to view study guides, resources, and updates using the button below:</p>
           <div style="margin:24px 0 12px 0;">
-            <a href="${siteUrl}/portal" style="display:inline-block;padding:12px 24px;border-radius:999px;background:#6d43c8;color:#ffffff;text-decoration:none;font-weight:700;box-shadow:0 4px 6px rgba(109,67,200,0.2)">Open Delegate Dashboard</a>
+            <a href="${siteUrl}/dashboard?id=${encodeURIComponent(r.publicId)}" style="display:inline-block;padding:12px 24px;border-radius:999px;background:#6d43c8;color:#ffffff;text-decoration:none;font-weight:700;box-shadow:0 4px 6px rgba(109,67,200,0.2)">Open Delegate Dashboard</a>
           </div>
           <p style="margin-top:28px;color:#706b7e;font-size:13px;line-height:1.6;border-top:1px solid #eee;padding-top:16px">This is an automated update from Invictus MUN. Please do not reply directly to this email.</p>
         </div>

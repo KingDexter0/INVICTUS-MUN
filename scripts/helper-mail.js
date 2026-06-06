@@ -22,8 +22,31 @@ function configured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:4173";
+function getBaseUrl() {
+  const url =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    process.env.VERCEL_URL;
+
+  if (!url) {
+    throw new Error(
+      "[email] APP_URL is not set. Cannot send emails with valid links.\n" +
+      "  Set APP_URL=https://your-production-domain.com in your .env file or Vercel dashboard."
+    );
+  }
+
+  const withScheme = url.startsWith("http") ? url : `https://${url}`;
+  const base = withScheme.replace(/\/$/, "");
+
+  if (base.includes("localhost") || base.includes("127.0.0.1")) {
+    throw new Error(
+      `[email] Refusing to send emails with a localhost URL: "${base}".\n` +
+      "  Set APP_URL=https://your-production-domain.com in your .env or Vercel settings."
+    );
+  }
+
+  return base;
 }
 
 function testModeNotice(to, trigger) {
@@ -38,7 +61,7 @@ function testModeNotice(to, trigger) {
 }
 
 function getDelegateDashboardUrl(trackingToken) {
-  const base = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || siteUrl();
+  const base = getBaseUrl();
   return `${base}/dashboard?id=${encodeURIComponent(trackingToken)}`;
 }
 
