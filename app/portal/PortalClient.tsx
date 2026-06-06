@@ -129,12 +129,37 @@ type AnalyticsSummary = {
   awards: number;
 };
 
-const capacities: Record<string, number> = {
+export function getCommitteeName(allotted: string | null | undefined): string | null {
+  if (!allotted) return null;
+  const val = allotted.trim();
+  const lower = val.toLowerCase();
+
+  if (lower.startsWith("unhrc")) return "UNHRC";
+  if (lower.startsWith("arab league")) return "Arab League";
+  if (lower.startsWith("uncsw")) return "UNCSW";
+  if (lower.startsWith("fifa")) return "FIFA";
+  if (lower.startsWith("unga") || lower.includes("unga")) return "UNGA-ESS";
+  if (lower.startsWith("lok sabha")) return "Lok Sabha";
+  if (lower.startsWith("international press") || lower.startsWith("ip")) return "International Press";
+  if (lower.startsWith("unsc")) return "UNSC";
+  if (lower.startsWith("unodc")) return "UNODC";
+  if (lower.startsWith("disec")) return "DISEC";
+  if (lower.startsWith("ecofin")) return "ECOFIN";
+  if (lower.startsWith("ipl")) return "IPL";
+
+  const dashIndex = val.indexOf("-");
+  if (dashIndex > 0) {
+    return val.substring(0, dashIndex).trim();
+  }
+  return val;
+}
+
+const DEFAULT_CAPACITIES: Record<string, number> = {
   UNHRC: 70,
   "Arab League": 65,
   UNCSW: 55,
   FIFA: 60,
-  "UNGA Emergency Special Session": 75,
+  "UNGA-ESS": 75,
   "Lok Sabha": 70,
   "International Press": 40
 };
@@ -619,6 +644,24 @@ export function PortalClient() {
       .catch((err) => console.error("Error loading import report:", err));
   }, []);
 
+  const dynamicCapacities = useMemo(() => {
+    const base: Record<string, number> = { ...DEFAULT_CAPACITIES };
+
+    const allAllotted = [
+      ...registrations.map(r => r.allottedCommittee),
+      ...delegationDelegates.map(d => d.allottedCommittee)
+    ];
+
+    for (const raw of allAllotted) {
+      const parsed = getCommitteeName(raw);
+      if (parsed && !base[parsed]) {
+        base[parsed] = 50; // Default capacity for dynamically discovered committees
+      }
+    }
+
+    return base;
+  }, [registrations, delegationDelegates]);
+
   const stats = useMemo(() => {
     const verified = registrations.filter((item) => item.paymentStatus === "Verified");
     const approved = registrations.filter((item) => item.registrationStatus === "Approved");
@@ -649,7 +692,9 @@ export function PortalClient() {
       })
       .filter((registration) => {
         if (!selectedCommittee) return true;
-        return registration.committee1 === selectedCommittee || registration.allottedCommittee === selectedCommittee;
+        const committee1Parsed = getCommitteeName(registration.committee1);
+        const allottedParsed = getCommitteeName(registration.allottedCommittee);
+        return committee1Parsed === selectedCommittee || allottedParsed === selectedCommittee;
       });
   }, [registrations, activeFilter, selectedCommittee]);
 
@@ -676,7 +721,9 @@ export function PortalClient() {
       })
       .filter((registration) => {
         if (!selectedCommittee) return true;
-        return registration.committee1 === selectedCommittee || registration.allottedCommittee === selectedCommittee;
+        const committee1Parsed = getCommitteeName(registration.committee1);
+        const allottedParsed = getCommitteeName(registration.allottedCommittee);
+        return committee1Parsed === selectedCommittee || allottedParsed === selectedCommittee;
       });
   }, [delegationDelegates, activeFilter, selectedCommittee]);
 
@@ -1484,8 +1531,11 @@ export function PortalClient() {
             <section className="panel committees-panel" id="allotments">
               <div className="panel-head"><div><p className="eyebrow">CAPACITY TRACKER</p><h2>Committee health</h2></div><Link href="/committees">Manage committees</Link></div>
               <div className="committee-list">
-                {Object.entries(capacities).map(([name, capacity], index) => {
-                  const count = registrations.filter((registration) => registration.allottedCommittee === name).length;
+                {Object.entries(dynamicCapacities).map(([name, capacity], index) => {
+                  const count = [
+                    ...registrations.filter((r) => r.registrationType === "individual"),
+                    ...delegationDelegates
+                  ].filter((p) => getCommitteeName(p.allottedCommittee) === name).length;
                   const percent = Math.min(100, Math.round((count / capacity) * 100));
                   return (
                     <button className="committee-row clickable-row" key={name} type="button" onClick={() => jumpToRegistrations("all", name)}>
@@ -1566,7 +1616,7 @@ export function PortalClient() {
                     required
                   >
                     <option value="All registered delegates">All registered delegates</option>
-                    {Object.keys(capacities).map((committeeName) => (
+                    {Object.keys(dynamicCapacities).map((committeeName) => (
                       <option key={committeeName} value={committeeName}>{committeeName}</option>
                     ))}
                   </select>
@@ -1917,7 +1967,7 @@ export function PortalClient() {
             
             {active.registrationType !== "delegation" ? (
               <div className="allotment-editor">
-                <label>Allotted committee<select value={committee} onChange={(event) => setCommittee(event.target.value)}><option value="">Select committee</option>{Object.keys(capacities).map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label>Allotted committee<select value={committee} onChange={(event) => setCommittee(event.target.value)}><option value="">Select committee</option>{Object.keys(dynamicCapacities).map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label>Allotted portfolio<input value={portfolio} onChange={(event) => setPortfolio(event.target.value)} placeholder="Country / role" /></label>
                 <label className="wide">Admin note<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note for this update" /></label>
                 <p className="empty-copy wide">Admins can change the allotted committee or portfolio here, then save the allotment again. The delegate dashboard and QR pass update immediately from the database.</p>

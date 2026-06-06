@@ -23,7 +23,8 @@ export async function GET(request: Request) {
         encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`)
       );
     } catch (err) {
-      // Stream might be closed already
+      clearInterval(pingInterval);
+      operationsEmitter.off("update", onUpdate);
     }
   };
 
@@ -33,7 +34,10 @@ export async function GET(request: Request) {
   const pingInterval = setInterval(async () => {
     try {
       await writer.write(encoder.encode("event: ping\ndata: {}\n\n"));
-    } catch {}
+    } catch {
+      clearInterval(pingInterval);
+      operationsEmitter.off("update", onUpdate);
+    }
   }, 15000);
 
   // Handle connection close
