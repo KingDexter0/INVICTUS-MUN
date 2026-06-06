@@ -41,6 +41,21 @@ export function getDelegateRegistrationId() {
   return getDelegateRegistrationIdFromToken(cookies().get(cookieName)?.value);
 }
 
+/**
+ * Returns the resolved { type, id } from the delegate session cookie.
+ * type: "individual" | "delegate" | "legacy"
+ * id: the database record id
+ */
+export function getDelegateSessionInfo(): { type: "individual" | "delegate" | "legacy"; id: string } | null {
+  const raw = getDelegateRegistrationId();
+  if (!raw) return null;
+
+  if (raw.startsWith("individual:")) return { type: "individual", id: raw.slice("individual:".length) };
+  if (raw.startsWith("delegate:")) return { type: "delegate", id: raw.slice("delegate:".length) };
+  // Legacy tokens (plain uuid/cuid with no prefix) kept for backwards compat
+  return { type: "legacy", id: raw };
+}
+
 export function setDelegateCookie(token: string) {
   cookies().set(cookieName, token, {
     httpOnly: true,
@@ -60,4 +75,3 @@ export function clearDelegateCookie(response: NextResponse) {
     maxAge: 0
   });
 }
-

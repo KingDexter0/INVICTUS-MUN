@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { assertAdmin, getAdminEmailFromToken } from "../../../../../lib/admin";
 import { prisma } from "../../../../../lib/prisma";
-import { serializeRegistration } from "../../../../../lib/registrations";
+import { serializeIndividualRegistration, serializeDelegationDelegate } from "../../../../../lib/registrations";
 import { operationsEmitter } from "../../../../../lib/events";
 
 export const dynamic = "force-dynamic";
@@ -11,17 +11,17 @@ function hashOtp(otp: string) {
   return createHash("sha256").update(otp).digest("hex");
 }
 
-function delegateDetails(registration: any) {
+function delegateDetails(reg: any) {
   return {
-    id: registration.publicId,
-    publicId: registration.publicId,
-    name: registration.name,
-    email: registration.email,
-    committee: registration.allottedCommittee || registration.committee1 || null,
-    portfolio: registration.allottedPortfolio || registration.portfolio1 || null,
-    paymentStatus: registration.paymentStatus,
-    registrationStatus: registration.registrationStatus,
-    allotmentStatus: registration.allotmentStatus
+    id: reg.publicId,
+    publicId: reg.publicId,
+    name: reg.name,
+    email: reg.email,
+    committee: reg.allottedCommittee || reg.committee1 || null,
+    portfolio: reg.allottedPortfolio || reg.portfolio1 || null,
+    paymentStatus: reg.paymentStatus,
+    registrationStatus: reg.registrationStatus,
+    allotmentStatus: reg.allotmentStatus
   };
 }
 
@@ -73,17 +73,40 @@ export async function POST(request: Request) {
       data: { used: true }
     });
 
-    // 4. Mark delegate as checked in and store who completed it
+    // 4. Mark delegate as checked in in the correct table
     const checkedInBy = getAdminEmailFromToken() || "Admin";
+    const updateData = { checkedIn: true, checkedInAt: new Date(), checkedInBy };
 
-    const updatedDelegate = await prisma.registration.update({
-      where: { publicId: cleanDelegateId },
-      data: {
-        checkedIn: true,
-        checkedInAt: new Date(),
-        checkedInBy
-      }
+    let updatedDelegate: any = null;
+    let serialized: any = null;
+
+    const individual = await prisma.individualRegistration.findUnique({
+      where: { publicId: cleanDelegateId }
     });
+
+    if (individual) {
+      updatedDelegate = await prisma.individualRegistration.update({
+        where: { publicId: cleanDelegateId },
+        data: updateData
+      });
+      serialized = serializeIndividualRegistration(updatedDelegate);
+    } else {
+      const del = await prisma.delegationDelegate.findUnique({
+        where: { publicId: cleanDelegateId }
+      });
+      if (del) {
+        const updated = await prisma.delegationDelegate.update({
+          where: { publicId: cleanDelegateId },
+          data: updateData
+        });
+        serialized = serializeDelegationDelegate(updated);
+        updatedDelegate = updated;
+      }
+    }
+
+    if (!updatedDelegate) {
+      return NextResponse.json({ error: "Delegate not found." }, { status: 404 });
+    }
 
     // Requirement 18: Log who completed the check-in
     console.log(`[CHECK-IN OTP VERIFIED] Delegate ${cleanDelegateId} checked in successfully by admin: ${checkedInBy}`);
@@ -92,9 +115,9 @@ export async function POST(request: Request) {
       type: "delegate:checked-in",
       data: {
         publicId: cleanDelegateId,
-        checkedInAt: updatedDelegate.checkedInAt?.toISOString() || null,
+        checkedInAt: updateData.checkedInAt.toISOString(),
         checkedInBy,
-        registration: serializeRegistration(updatedDelegate)
+        registration: serialized
       }
     });
 
@@ -102,8 +125,8 @@ export async function POST(request: Request) {
       success: true,
       message: "Delegate checked in.",
       delegate: delegateDetails(updatedDelegate),
-      checkedInAt: updatedDelegate.checkedInAt?.toISOString() || null,
-      registration: serializeRegistration(updatedDelegate)
+      checkedInAt: updateData.checkedInAt.toISOString(),
+      registration: serialized
     });
   } catch (error) {
     console.error("Verify OTP failed:", error);

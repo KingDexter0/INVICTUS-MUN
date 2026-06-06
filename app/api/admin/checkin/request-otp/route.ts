@@ -26,17 +26,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Delegate ID is required." }, { status: 400 });
     }
 
-    // 2. Find the delegate
-    const delegate = await prisma.registration.findUnique({
+    // 2. Find the delegate in either new table
+    let delegateName = "";
+    let delegatePublicId = cleanDelegateId;
+    let committee = "Not assigned";
+    let institution = "Independent delegate";
+    let checkedIn = false;
+
+    const individual = await prisma.individualRegistration.findUnique({
       where: { publicId: cleanDelegateId }
     });
 
-    if (!delegate) {
-      return NextResponse.json({ error: "Delegate registration not found." }, { status: 404 });
+    if (individual) {
+      delegateName = individual.name;
+      delegatePublicId = individual.publicId;
+      committee = individual.allottedCommittee || individual.committee1 || "Not assigned";
+      institution = individual.institution || "Independent delegate";
+      checkedIn = individual.checkedIn;
+    } else {
+      const del = await prisma.delegationDelegate.findUnique({
+        where: { publicId: cleanDelegateId },
+        include: { delegation: true }
+      });
+      if (del) {
+        delegateName = del.name;
+        delegatePublicId = del.publicId;
+        committee = del.allottedCommittee || del.committee1 || "Not assigned";
+        institution = del.delegation.institution || "Independent delegate";
+        checkedIn = del.checkedIn;
+      } else {
+        return NextResponse.json({ error: "Delegate registration not found." }, { status: 404 });
+      }
     }
 
     // Requirement 19: If already checked in, block check-in
-    if (delegate.checkedIn) {
+    if (checkedIn) {
       return NextResponse.json({ error: "Already checked in" }, { status: 400 });
     }
 
@@ -94,10 +118,10 @@ export async function POST(request: Request) {
       adminEmails.map((email) =>
         sendCheckInOtpEmail(
           email,
-          delegate.name,
-          delegate.publicId,
-          delegate.allottedCommittee || delegate.committee1 || "Not assigned",
-          delegate.institution || "Independent delegate",
+          delegateName,
+          delegatePublicId,
+          committee,
+          institution,
           otp
         )
       )

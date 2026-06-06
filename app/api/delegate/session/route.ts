@@ -8,7 +8,8 @@ function normalizePhone(phone: string) {
   return phone.replace(/\D/g, "");
 }
 
-function phoneMatches(storedPhone: string, inputPhone: string) {
+function phoneMatches(storedPhone: string | null | undefined, inputPhone: string) {
+  if (!storedPhone) return false;
   const stored = normalizePhone(storedPhone);
   const input = normalizePhone(inputPhone);
   return stored === input || stored.endsWith(input) || input.endsWith(stored);
@@ -24,19 +25,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter both your registered email and phone number." }, { status: 400 });
     }
 
-    const candidates = await prisma.registration.findMany({
+    // Search IndividualRegistration first
+    const individualCandidates = await prisma.individualRegistration.findMany({
       where: { email: { equals: cleanEmail, mode: "insensitive" } },
       orderBy: { createdAt: "desc" },
       take: 10
     });
-    const registration = candidates.find((candidate) => phoneMatches(candidate.phone, cleanPhone));
+    const individual = individualCandidates.find((c) => phoneMatches(c.phone, cleanPhone));
 
-    if (!registration) {
-      return NextResponse.json({ error: "No registration matched that email and phone number." }, { status: 401 });
+    if (individual) {
+      // Store internal db id in session token (scoped with prefix to distinguish)
+      setDelegateCookie(createDelegateToken(`individual:${individual.id}`));
+      return NextResponse.json({ ok: true, id: individual.publicId, type: "individual" });
     }
 
-    setDelegateCookie(createDelegateToken(registration.id));
-    return NextResponse.json({ ok: true, id: registration.publicId });
+    // Search DelegationDelegate
+    const delegateCandidates = await prisma.delegationDelegate.findMany({
+      where: { email: { equals: cleanEmail, mode: "insensitive" } },
+      orderBy: { createdAt: "desc" },
+      take: 10
+    });
+    const delegate = delegateCandidates.find((c) => phoneMatches(c.phone, cleanPhone));
+
+    if (delegate) {
+      setDelegateCookie(createDelegateToken(`delegate:${delegate.id}`));
+      return NextResponse.json({ ok: true, id: delegate.publicId, type: "delegate" });
+    }
+
+    return NextResponse.json({ error: "No registration matched that email and phone number." }, { status: 401 });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Could not start delegate session right now." }, { status: 500 });

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteFooter, SiteHeader } from "../../components/SiteHeader";
-import { getDelegateRegistrationId } from "../../../lib/delegate";
+import { getDelegateSessionInfo } from "../../../lib/delegate";
 import { prisma } from "../../../lib/prisma";
 import { isSafeExternalUrl } from "../../../lib/security";
 import { LogoutButton } from "./LogoutButton";
@@ -9,26 +9,91 @@ import { LogoutButton } from "./LogoutButton";
 export const dynamic = "force-dynamic";
 
 export default async function DelegateDashboardPage() {
-  const registrationId = getDelegateRegistrationId();
-  if (!registrationId) {
+  const sessionInfo = getDelegateSessionInfo();
+  if (!sessionInfo) {
     redirect("/delegate/login");
   }
 
-  const registration = await prisma.registration.findUnique({ where: { id: registrationId } });
+  const { type, id } = sessionInfo;
+
+  // Resolve the record from the correct table
+  let registration: any = null;
+  let certificates: any[] = [];
+  let awards: any[] = [];
+  let isDelegationDelegate = false;
+
+  if (type === "individual") {
+    registration = await prisma.individualRegistration.findUnique({
+      where: { id }
+    });
+    if (registration) {
+      [certificates, awards] = await Promise.all([
+        prisma.individualCertificate.findMany({ where: { registrationId: id }, orderBy: { issuedAt: "desc" } }),
+        prisma.individualAward.findMany({ where: { registrationId: id }, orderBy: { createdAt: "desc" } })
+      ]);
+    }
+  } else if (type === "delegate") {
+    const del = await prisma.delegationDelegate.findUnique({
+      where: { id },
+      include: { delegation: true }
+    });
+    if (del) {
+      isDelegationDelegate = true;
+      // Normalize delegate + delegation into a single registration-like object
+      registration = {
+        id: del.id,
+        publicId: del.publicId,
+        name: del.name,
+        email: del.email || "",
+        phone: del.phone || "",
+        institution: del.delegation.institution || "",
+        type: "Delegate",
+        committee1: del.committee1 || "",
+        committee2: null,
+        portfolio1: del.portfolio1 || null,
+        utr: null,
+        paymentStatus: del.delegation.paymentStatus,
+        registrationStatus: del.delegation.registrationStatus,
+        allotmentStatus: del.allotmentStatus,
+        allottedCommittee: del.allottedCommittee || null,
+        allottedPortfolio: del.allottedPortfolio || null,
+        checkedIn: del.checkedIn,
+        certificateReleased: del.certificateReleased,
+        registrationType: "delegation",
+        delegationName: del.delegation.delegationName,
+        trackingToken: del.trackingToken
+      };
+      [certificates, awards] = await Promise.all([
+        prisma.delegateCertificate.findMany({ where: { delegateId: id }, orderBy: { issuedAt: "desc" } }),
+        prisma.delegateAward.findMany({ where: { delegateId: id }, orderBy: { createdAt: "desc" } })
+      ]);
+    }
+  } else {
+    // Legacy fallback
+    try {
+      registration = await prisma.registration.findUnique({ where: { id } });
+      if (registration) {
+        [certificates, awards] = await Promise.all([
+          prisma.certificate.findMany({ where: { registrationId: id }, orderBy: { issuedAt: "desc" } }),
+          prisma.award.findMany({ where: { registrationId: id }, orderBy: { createdAt: "desc" } })
+        ]);
+      }
+    } catch {}
+  }
+
   if (!registration) {
     redirect("/delegate/login");
   }
 
-  const [announcements, resources, certificates, awards] = await Promise.all([
+  const [announcements, resources] = await Promise.all([
     prisma.announcement.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.resource.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.certificate.findMany({ where: { registrationId: registration.id }, orderBy: { issuedAt: "desc" } }),
-    prisma.award.findMany({ where: { registrationId: registration.id }, orderBy: { createdAt: "desc" } })
+    prisma.resource.findMany({ orderBy: { createdAt: "desc" } })
   ]);
 
-  const isDelegation = registration.registrationType === "delegation";
-  const hasAllotment = registration.allotmentStatus === "Allotted" || 
+  const isDelegation = isDelegationDelegate || registration.registrationType === "delegation";
+  const hasAllotment = registration.allotmentStatus === "Allotted" ||
     (isDelegation && registration.registrationStatus === "Approved");
+
   const timelineSteps = [
     { label: "Registered", active: Boolean(registration.publicId), detail: registration.publicId },
     { label: "Payment", active: registration.paymentStatus === "Verified", detail: registration.paymentStatus },
@@ -36,6 +101,7 @@ export default async function DelegateDashboardPage() {
     { label: isDelegation ? "Group Ready" : "Allotted", active: hasAllotment, detail: isDelegation ? (registration.registrationStatus === "Approved" ? "Approved" : "Pending") : registration.allotmentStatus },
     { label: "QR Ready", active: hasAllotment, detail: hasAllotment ? "Ready" : "Locked" }
   ];
+
   const visibleResources = resources.filter((resource) => {
     if (resource.accessLevel === "Public" || resource.accessLevel === "Registered") return true;
     if (resource.accessLevel === "Approved") return registration.registrationStatus === "Approved";
@@ -80,8 +146,8 @@ export default async function DelegateDashboardPage() {
                   ["Name", registration.name],
                   ["Email", registration.email],
                   ["Phone", registration.phone],
-                  ["Institution", registration.institution || "Independent delegate"],
-                  ["Registration type", registration.type],
+                  ["Institution", registration.institution || (isDelegation ? registration.delegationName : "Independent delegate")],
+                  ["Registration type", isDelegation ? "Delegation" : registration.type],
                   ["Preference 1", registration.committee1],
                   ["Preference 2", registration.committee2 || "-"],
                   ["Portfolio preference", registration.portfolio1 || "-"],
@@ -134,7 +200,7 @@ export default async function DelegateDashboardPage() {
               </div>
             </article>
             <article className="dashboard-card">
-              <h2>Study Guides & Resources</h2>
+              <h2>Study Guides &amp; Resources</h2>
               <div className="resource-list compact">
                 {visibleResources.length ? visibleResources.map((resource) => (
                   isSafeExternalUrl(resource.fileUrl) ? (
