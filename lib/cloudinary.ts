@@ -52,12 +52,16 @@ export async function uploadResourceFile(file: File | null): Promise<UploadResul
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
+  const originalName = cleanUploadFilename(file.name || "invictus-resource");
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: "invictus-mun/resources",
-        resource_type: "auto"
+        resource_type: "raw",
+        use_filename: true,
+        unique_filename: true,
+        filename_override: originalName
       },
       (error, result) => {
         if (error || !result) {
@@ -71,6 +75,15 @@ export async function uploadResourceFile(file: File | null): Promise<UploadResul
 
     stream.end(bytes);
   });
+}
+
+function cleanUploadFilename(value: string) {
+  return value
+    .replace(/[\\/]/g, "-")
+    .replace(/[^a-zA-Z0-9._ -]+/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "invictus-resource";
 }
 
 export async function uploadEbPhoto(file: File | null): Promise<UploadResult | null> {

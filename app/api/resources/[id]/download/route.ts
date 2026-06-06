@@ -67,6 +67,17 @@ function cloudinaryRawCandidate(fileUrl: string) {
   return fileUrl.replace("/image/upload/", "/raw/upload/");
 }
 
+function downloadCandidates(fileUrl: string) {
+  const rawCandidate = cloudinaryRawCandidate(fileUrl);
+  const looksLikePdf = extensionFromUrl(fileUrl) === "pdf";
+
+  if (rawCandidate && looksLikePdf) {
+    return [rawCandidate, fileUrl];
+  }
+
+  return [fileUrl, rawCandidate].filter(Boolean);
+}
+
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
     const resource = await prisma.resource.findUnique({
@@ -79,12 +90,13 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     }
 
     const cleanName = cleanBaseName(resource);
-    const candidateUrls = [resource.fileUrl, cloudinaryRawCandidate(resource.fileUrl)].filter(Boolean);
+    const candidateUrls = downloadCandidates(resource.fileUrl);
     let upstream: Response | null = null;
 
     for (const url of candidateUrls) {
       const response = await fetch(url, { cache: "no-store" }).catch(() => null);
-      if (response?.ok) {
+      const responseType = contentTypeKey(response?.headers.get("content-type") || "");
+      if (response?.ok && response.body && responseType !== "application/json") {
         upstream = response;
         break;
       }
