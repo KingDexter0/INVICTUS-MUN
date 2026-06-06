@@ -197,20 +197,28 @@ export async function POST(request: Request) {
 
       console.log(`[INDIVIDUAL REGISTERED] ID=${savedRegistration.publicId}, Token=${trackingToken}`);
 
-      void sendRegistrationEmail({
-        to: savedRegistration.email,
-        name: savedRegistration.name,
-        publicId: savedRegistration.publicId,
-        heading: "Registration submitted",
-        action: "Your Invictus MUN registration has been submitted successfully.",
-        dashboardPath: `/verify/pass/${encodeURIComponent(trackingToken)}`,
-        details: [
-          ["Registration type", savedRegistration.registrationType],
-          ["Role/Committee", savedRegistration.committee1 || "Delegate"],
-          ["Payment status", savedRegistration.paymentStatus],
-          ["Registration status", savedRegistration.registrationStatus]
-        ]
-      }).catch(err => console.error("Email failed on individual registration submit", err));
+      let emailFailed = false;
+      try {
+        await sendRegistrationEmail({
+          to: savedRegistration.email,
+          name: savedRegistration.name,
+          publicId: savedRegistration.publicId,
+          heading: "Registration submitted",
+          action: "Your Invictus MUN registration has been submitted successfully.",
+          dashboardPath: `/verify/pass/${encodeURIComponent(trackingToken)}`,
+          details: [
+            ["Registration type", savedRegistration.registrationType],
+            ["Role/Committee", savedRegistration.committee1 || "Delegate"],
+            ["Payment status", savedRegistration.paymentStatus],
+            ["Registration status", savedRegistration.registrationStatus]
+          ],
+          targetType: "individual",
+          targetId: savedRegistration.id
+        });
+      } catch (err) {
+        console.error("Email failed on individual registration submit:", err);
+        emailFailed = true;
+      }
 
       return NextResponse.json({
         success: true,
@@ -219,7 +227,8 @@ export async function POST(request: Request) {
         trackingToken,
         statusUrl: `/verify/pass/${trackingToken}`,
         dashboardUrl: `/dashboard?id=${trackingToken}`,
-        registration: serializeIndividualRegistration(savedRegistration)
+        registration: serializeIndividualRegistration(savedRegistration),
+        ...(emailFailed ? { warning: "Registration saved, but confirmation email could not be sent." } : {})
       });
     } else {
       const savedRegistration = await prisma.delegationRegistration.create({
@@ -272,20 +281,57 @@ export async function POST(request: Request) {
         });
       }
 
-      void sendRegistrationEmail({
-        to: savedRegistration.coTeacherEmail,
-        name: savedRegistration.coTeacherName,
-        publicId: savedRegistration.publicId,
-        heading: "Registration submitted",
-        action: "Your Invictus MUN delegation registration has been submitted successfully.",
-        dashboardPath: `/verify/pass/${encodeURIComponent(savedRegistration.publicId)}`,
-        details: [
-          ["Delegation Name", savedRegistration.delegationName],
-          ["Co-ordinating Teacher", savedRegistration.coTeacherName],
-          ["Payment status", savedRegistration.paymentStatus],
-          ["Registration status", savedRegistration.registrationStatus]
-        ]
-      }).catch(err => console.error("Email failed on delegation registration submit", err));
+      let emailFailed = false;
+      try {
+        await sendRegistrationEmail({
+          to: savedRegistration.coTeacherEmail,
+          name: savedRegistration.coTeacherName,
+          publicId: savedRegistration.publicId,
+          heading: "Registration submitted",
+          action: "Your Invictus MUN delegation registration has been submitted successfully.",
+          dashboardPath: `/verify/pass/${encodeURIComponent(savedRegistration.publicId)}`,
+          details: [
+            ["Delegation Name", savedRegistration.delegationName],
+            ["Co-ordinating Teacher", savedRegistration.coTeacherName],
+            ["Payment status", savedRegistration.paymentStatus],
+            ["Registration status", savedRegistration.registrationStatus]
+          ],
+          targetType: "delegation",
+          targetId: savedRegistration.id
+        });
+      } catch (err) {
+        console.error("Email failed on delegation parent registration submit:", err);
+        emailFailed = true;
+      }
+
+      // Also send to each delegate if they have an email address
+      for (const delegateRow of delegateList) {
+        const savedDel = savedDelegates.find(d => d.fullName === (delegateRow.name || delegateRow.fullName));
+        if (savedDel && delegateRow.email) {
+          const recipientEmail = String(delegateRow.email).trim();
+          if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+            try {
+              await sendRegistrationEmail({
+                to: recipientEmail,
+                name: delegateRow.name || delegateRow.fullName,
+                publicId: savedDel.id,
+                heading: "Delegation Registration submitted",
+                action: `You have been registered as a delegate in the delegation "${body.delegationName}" for Invictus MUN.`,
+                dashboardPath: `/verify/pass/${encodeURIComponent(savedDel.trackingToken)}`,
+                details: [
+                  ["Delegation Name", body.delegationName],
+                  ["Role/Committee", delegateRow.committee1 || "Delegate"],
+                ],
+                targetType: "delegate",
+                targetId: savedDel.id
+              });
+            } catch (err) {
+              console.error(`Email failed to send to delegate ${delegateRow.name || delegateRow.fullName}:`, err);
+              emailFailed = true;
+            }
+          }
+        }
+      }
 
       return NextResponse.json({
         success: true,
@@ -293,7 +339,8 @@ export async function POST(request: Request) {
         delegationId: savedRegistration.publicId,
         delegateCount: savedDelegates.length,
         delegates: savedDelegates,
-        registration: serializeDelegationRegistration(savedRegistration)
+        registration: serializeDelegationRegistration(savedRegistration),
+        ...(emailFailed ? { warning: "Registration saved, but confirmation email could not be sent." } : {})
       });
     }
   } catch (error) {

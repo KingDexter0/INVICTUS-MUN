@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../../../../lib/admin";
 import { prisma } from "../../../../../../../lib/prisma";
 import { operationsEmitter } from "../../../../../../../lib/events";
+import { sendCertificateEmail } from "../../../../../../../lib/mail";
+import { getCertificateUrl } from "../../../../../../../lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -31,21 +33,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }
     });
 
+    const certificateUrl = getCertificateUrl(certificate.certificateNo, request);
+
     await prisma.individualRegistration.update({
       where: { id: registration.id },
       data: {
         certificateReleased: true,
         certificateReleasedAt: new Date(),
-        certificateUrl: `/certificates/${certificate.certificateNo}`
+        certificateUrl
       }
     });
+
+    // Send certificate email (non-blocking — never fail the certificate release on email error)
+    try {
+      await sendCertificateEmail({
+        to: registration.email,
+        name: registration.name,
+        certificateNo: certificate.certificateNo,
+        certificateUrl,
+        targetType: "individual",
+        targetId: registration.publicId
+      });
+    } catch (emailErr) {
+      console.error("[Certificate] Failed to send certificate email:", emailErr);
+    }
 
     operationsEmitter.emit("update", {
       type: "certificate:updated",
       data: {
         publicId: registration.publicId,
         certificateReleased: true,
-        certificateUrl: `/certificates/${certificate.certificateNo}`
+        certificateUrl
       }
     });
 

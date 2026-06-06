@@ -42,13 +42,32 @@ function getDelegateDashboardUrl(trackingToken) {
   return `${base}/dashboard?id=${encodeURIComponent(trackingToken)}`;
 }
 
-async function sendEmail({ to, subject, html }) {
+async function logEmail({ type, recipient, targetType, targetId, status, error, messageId }) {
+  try {
+    await prisma.emailLog.create({
+      data: {
+        type,
+        recipient,
+        targetType: targetType || null,
+        targetId: targetId || null,
+        status,
+        error: error || null,
+        messageId: messageId || null,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to write to EmailLog from CLI helper:", err);
+  }
+}
+
+async function sendEmail({ to, subject, html, type = "allotment", targetType = null, targetId = null }) {
+  const recipient = Array.isArray(to) ? to.join(", ") : to;
   if (!configured()) {
     console.warn("SMTP email skipped: host, user, or pass are not configured.");
+    await logEmail({ type, recipient, targetType, targetId, status: "SKIPPED", error: "SMTP environment configuration missing" });
     return { status: "skipped" };
   }
 
-  const recipient = Array.isArray(to) ? to.join(", ") : to;
   const actualTo = isTestMode ? (process.env.TEST_EMAIL_TO || "yokshpatil7388@gmail.com") : recipient;
   const finalHtml = isTestMode ? html.replace(testModeNotice("", subject), testModeNotice(recipient, subject)) : html;
 
@@ -59,14 +78,16 @@ async function sendEmail({ to, subject, html }) {
       subject,
       html: finalHtml,
     });
+    await logEmail({ type, recipient, targetType, targetId, status: "SENT", messageId: info.messageId });
     return { status: isTestMode ? "sent-test" : "sent", messageId: info.messageId };
   } catch (error) {
     console.error(`[SMTP] Send failed to: ${actualTo}`, error);
+    await logEmail({ type, recipient, targetType, targetId, status: "FAILED", error: error.message || String(error) });
     throw error;
   }
 }
 
-async function sendAllotmentAndPaymentEmail({ to, name, publicId, trackingToken, committee, portfolio }) {
+async function sendAllotmentAndPaymentEmail({ to, name, publicId, trackingToken, committee, portfolio, targetType = null, targetId = null }) {
   const dashboardUrl = getDelegateDashboardUrl(trackingToken);
   return sendEmail({
     to,
@@ -93,6 +114,9 @@ async function sendAllotmentAndPaymentEmail({ to, name, publicId, trackingToken,
         </div>
       </div>
     `,
+    type: "allotment",
+    targetType,
+    targetId
   });
 }
 
@@ -133,6 +157,8 @@ async function processDelegateEmail(type, record, forceResend = false, apply = f
       trackingToken,
       committee: record.allottedCommittee || "N/A",
       portfolio: record.allottedPortfolio || "N/A",
+      targetType: "individual",
+      targetId: record.publicId
     });
 
     if (res.status === "sent" || res.status === "sent-test") {
@@ -185,6 +211,8 @@ async function processDelegateEmail(type, record, forceResend = false, apply = f
       trackingToken,
       committee: record.allottedCommittee || "N/A",
       portfolio: record.allottedPortfolio || "N/A",
+      targetType: "delegate",
+      targetId: record.publicId
     });
 
     if (res.status === "sent" || res.status === "sent-test") {

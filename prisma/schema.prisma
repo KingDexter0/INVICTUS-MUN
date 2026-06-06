@@ -520,3 +520,15 @@ model DelegateWhatsAppLog {
   @@index([status])
 }
 
+model EmailLog {
+  id          String   @id @default(cuid())
+  type        String
+  recipient   String
+  targetType  String?
+  targetId    String?
+  status      String
+  error       String?
+  messageId   String?
+  createdAt   DateTime @default(now())
+}
+

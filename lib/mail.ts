@@ -1,25 +1,7 @@
 import nodemailer from "nodemailer";
-
-const smtpPort = Number(process.env.SMTP_PORT || 587);
-const smtpSecure = process.env.SMTP_SECURE === "true";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: smtpPort,
-  secure: smtpSecure,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-function configured() {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-}
-
-function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:4173";
-}
+import { randomUUID } from "crypto";
+import { prisma } from "./prisma";
+import { getDelegateDashboardUrl } from "./url";
 
 function isTestMode() {
   return process.env.EMAIL_TEST_MODE === "true";
@@ -45,7 +27,9 @@ function baseTemplate({ heading, name, publicId, action, dashboardPath = "/dashb
   dashboardPath?: string;
   details?: Array<[string, string | null | undefined]>;
 }) {
-  const dashboardUrl = `${siteUrl()}${dashboardPath}`;
+  const envUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:4173";
+  const cleanedEnvUrl = envUrl.replace(/\/$/, "");
+  const dashboardUrl = `${cleanedEnvUrl}${dashboardPath}`;
   const rows = details
     .filter(([, value]) => Boolean(value))
     .map(([label, value]) => `<p style="margin:6px 0;color:#565061"><strong>${label}:</strong> ${value}</p>`)
@@ -77,49 +61,164 @@ export type EmailStatus = {
   messageId?: string;
 };
 
-// 1. Generic sendEmail
+function requireEnv(name: string) {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is missing`);
+  return value;
+}
+
+export function isSmtpConfigured(): boolean {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+}
+
+export function createTransporter() {
+  const host = requireEnv("SMTP_HOST");
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = process.env.SMTP_SECURE === "true";
+  const user = requireEnv("SMTP_USER");
+  const pass = requireEnv("SMTP_PASS");
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user,
+      pass,
+    },
+  });
+}
+
+export async function verifySmtpConnection() {
+  const transporter = createTransporter();
+  await transporter.verify();
+  return true;
+}
+
+async function logEmail({
+  type,
+  recipient,
+  targetType,
+  targetId,
+  status,
+  error,
+  messageId,
+}: {
+  type: string;
+  recipient: string;
+  targetType?: string | null;
+  targetId?: string | null;
+  status: "SENT" | "FAILED" | "SKIPPED";
+  error?: string | null;
+  messageId?: string | null;
+}) {
+  try {
+    await prisma.emailLog.create({
+      data: {
+        type,
+        recipient,
+        targetType: targetType || null,
+        targetId: targetId || null,
+        status,
+        error: error || null,
+        messageId: messageId || null,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to write to EmailLog:", err);
+  }
+}
+
+// 1. Centralized sendEmail function
 export async function sendEmail({
   to,
   subject,
   html,
   text,
+  replyTo,
+  type = "generic",
+  targetType,
+  targetId,
   bypassTestMode = false,
 }: {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
+  type?: string;
+  targetType?: string | null;
+  targetId?: string | null;
   bypassTestMode?: boolean;
 }): Promise<EmailStatus> {
-  if (!configured()) {
+  const recipientStr = Array.isArray(to) ? to.join(", ") : to;
+  if (!isSmtpConfigured()) {
     console.warn("SMTP email skipped: host, user, or pass are not configured.");
+    await logEmail({
+      type,
+      recipient: recipientStr,
+      targetType,
+      targetId,
+      status: "SKIPPED",
+      error: "SMTP environment configuration missing",
+    });
     return { status: "skipped" } as EmailStatus;
   }
 
-  console.log(`[SMTP] Preparing to send email to: ${to}, Subject: ${subject}`);
-  console.log(`[SMTP] Host: ${process.env.SMTP_HOST}, Port: ${smtpPort}`);
+  console.log(`[SMTP] Preparing to send email of type "${type}" to: ${recipientStr}, Subject: ${subject}`);
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  if (!from) {
+    const errMsg = "SMTP_FROM or SMTP_USER environment variable is missing";
+    await logEmail({
+      type,
+      recipient: recipientStr,
+      targetType,
+      targetId,
+      status: "FAILED",
+      error: errMsg,
+    });
+    throw new Error(errMsg);
+  }
 
-  const recipient = Array.isArray(to) ? to.join(", ") : to;
-  const actualTo = (isTestMode() && !bypassTestMode) ? (process.env.TEST_EMAIL_TO as string) : recipient;
-  const finalHtml = (isTestMode() && !bypassTestMode) ? html.replace(testModeNotice("", subject), testModeNotice(recipient, subject)) : html;
+  const actualTo = (isTestMode() && !bypassTestMode) ? (process.env.TEST_EMAIL_TO as string) : recipientStr;
+  const finalHtml = (isTestMode() && !bypassTestMode) ? html.replace(testModeNotice("", subject), testModeNotice(recipientStr, subject)) : html;
 
   try {
+    const transporter = createTransporter();
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from,
       to: actualTo,
       subject,
       html: finalHtml,
       text,
+      replyTo,
     });
     console.log(`[SMTP] Send succeeded. MessageID: ${info.messageId}`);
+    await logEmail({
+      type,
+      recipient: recipientStr,
+      targetType,
+      targetId,
+      status: "SENT",
+      messageId: info.messageId,
+    });
     return { status: (isTestMode() ? "sent-test" : "sent"), messageId: info.messageId } as EmailStatus;
   } catch (error) {
+    const errMsg = (error as Error).message || String(error);
     console.error(`[SMTP] Send failed to: ${actualTo}`, error);
+    await logEmail({
+      type,
+      recipient: recipientStr,
+      targetType,
+      targetId,
+      status: "FAILED",
+      error: errMsg,
+    });
     throw error;
   }
 }
 
-// 2. sendOtpEmail (Admin check-in OTP verification)
+// 2. sendOtpEmail (Admin check-in OTP verification compatibility)
 export async function sendOtpEmail(to: string, otp: string) {
   return sendEmail({
     to,
@@ -141,6 +240,7 @@ export async function sendOtpEmail(to: string, otp: string) {
         </div>
       </div>
     `,
+    type: "admin_otp"
   });
 }
 
@@ -164,6 +264,8 @@ export async function sendRegistrationConfirmationEmail({
     to,
     subject: `Invictus MUN: ${heading}`,
     html: baseTemplate({ heading, name, publicId, action, details }),
+    type: "registration_confirmation",
+    targetId: publicId
   });
 }
 
@@ -173,11 +275,15 @@ export async function sendCertificateEmail({
   name,
   certificateNo,
   certificateUrl,
+  targetType,
+  targetId,
 }: {
   to: string;
   name: string;
   certificateNo: string;
   certificateUrl: string;
+  targetType?: string;
+  targetId?: string;
 }) {
   return sendEmail({
     to,
@@ -199,11 +305,13 @@ export async function sendCertificateEmail({
         </div>
       </div>
     `,
+    type: "certificate",
+    targetType,
+    targetId
   });
 }
 
-// --- Compatibility Aliases to keep existing code working without modification ---
-
+// 5. sendRegistrationEmail
 export async function sendRegistrationEmail(input: {
   to: string;
   name: string;
@@ -212,14 +320,20 @@ export async function sendRegistrationEmail(input: {
   action: string;
   dashboardPath?: string;
   details?: Array<[string, string | null | undefined]>;
+  targetType?: string;
+  targetId?: string;
 }) {
   return sendEmail({
     to: input.to,
     subject: `Invictus MUN: ${input.heading}`,
     html: baseTemplate(input),
+    type: "registration_confirmation",
+    targetType: input.targetType,
+    targetId: input.targetId || input.publicId
   });
 }
 
+// 6. sendResourceEmail
 export async function sendResourceEmail(input: {
   to: string;
   name: string;
@@ -228,7 +342,9 @@ export async function sendResourceEmail(input: {
   accessLevel: string;
   dashboardPath?: string;
 }) {
-  const dashboardUrl = `${siteUrl()}${input.dashboardPath || "/dashboard"}`;
+  const envUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:4173";
+  const cleanedEnvUrl = envUrl.replace(/\/$/, "");
+  const dashboardUrl = `${cleanedEnvUrl}${input.dashboardPath || "/dashboard"}`;
   return sendEmail({
     to: input.to,
     subject: `Invictus MUN resource uploaded: ${input.title}`,
@@ -251,9 +367,11 @@ export async function sendResourceEmail(input: {
         </div>
       </div>
     `,
+    type: "resource"
   });
 }
 
+// 7. sendAdminTestEmail
 export async function sendAdminTestEmail(to: string) {
   return sendEmail({
     to,
@@ -266,13 +384,15 @@ export async function sendAdminTestEmail(to: string) {
             <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
             <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">Email test successful</h1>
           </div>
-          <p style="font-size:16px;line-height:1.7">This confirms Resend is connected to the Invictus MUN admin portal.</p>
+          <p style="font-size:16px;line-height:1.7">This confirms Nodemailer/SMTP is connected to the Invictus MUN admin portal.</p>
         </div>
       </div>
     `,
+    type: "smtp_test"
   });
 }
 
+// 8. sendCheckInOtpEmail
 export async function sendCheckInOtpEmail(
   to: string,
   delegateName: string,
@@ -307,19 +427,13 @@ export async function sendCheckInOtpEmail(
         </div>
       </div>
     `,
+    type: "checkin_otp",
+    targetType: "delegate",
+    targetId: delegateId
   });
 }
 
-// --- Combined Allotment and Payment Email Sending Logic ---
-
-import { randomUUID } from "crypto";
-import { prisma } from "./prisma";
-
-export function getDelegateDashboardUrl(trackingToken: string): string {
-  const base = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || siteUrl();
-  return `${base}/dashboard?id=${encodeURIComponent(trackingToken)}`;
-}
-
+// 9. sendAllotmentAndPaymentEmail
 export async function sendAllotmentAndPaymentEmail({
   to,
   name,
@@ -327,6 +441,7 @@ export async function sendAllotmentAndPaymentEmail({
   trackingToken,
   committee,
   portfolio,
+  targetType = "individual"
 }: {
   to: string;
   name: string;
@@ -334,6 +449,7 @@ export async function sendAllotmentAndPaymentEmail({
   trackingToken: string;
   committee: string;
   portfolio: string;
+  targetType?: string;
 }) {
   const dashboardUrl = getDelegateDashboardUrl(trackingToken);
   return sendEmail({
@@ -361,9 +477,57 @@ export async function sendAllotmentAndPaymentEmail({
         </div>
       </div>
     `,
+    type: "allotment",
+    targetType,
+    targetId: publicId
   });
 }
 
+// 10. sendWelcomeEmail
+export async function sendWelcomeEmail({
+  to,
+  name,
+  publicId,
+  trackingToken,
+  targetType = "individual"
+}: {
+  to: string;
+  name: string;
+  publicId: string;
+  trackingToken: string;
+  targetType?: string;
+}) {
+  const dashboardUrl = getDelegateDashboardUrl(trackingToken);
+  return sendEmail({
+    to,
+    subject: "Welcome to Invictus MUN 2026!",
+    html: `
+      <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#181424">
+        <div style="max-width:620px;margin:0 auto;padding:28px">
+          ${testModeNotice("", "Welcome Email")}
+          <div style="border-left:5px solid #6d43c8;padding-left:16px;margin-bottom:24px">
+            <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
+            <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">Welcome to the Conference!</h1>
+          </div>
+          <p style="font-size:16px;line-height:1.7">Dear ${name},</p>
+          <p style="font-size:16px;line-height:1.7">We are thrilled to welcome you to Invictus MUN 2026. Your registration is confirmed, and you can now log in to check for updates and announcements on your delegate dashboard.</p>
+          <div style="margin:20px 0;padding:16px;border:1px solid #e9e5f0;border-radius:14px;background:#fbf9ff">
+            <p style="margin:6px 0;color:#565061"><strong>Delegate ID:</strong> ${publicId}</p>
+          </div>
+          <div style="margin:24px 0">
+            <a href="${dashboardUrl}" style="display:inline-block;padding:14px 24px;border-radius:999px;background:#6d43c8;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;text-align:center">Open Delegate Dashboard</a>
+          </div>
+          <p style="margin-top:24px;color:#706b7e;font-size:13px;line-height:1.6">Best regards,<br>The Invictus MUN Secretariat</p>
+        </div>
+      </div>
+    `,
+    type: "welcome",
+    targetType,
+    targetId: publicId
+  });
+}
+
+// 11. maybeSendAllotmentPaymentEmail
 export async function maybeSendAllotmentPaymentEmail({
   targetType,
   targetId,
@@ -413,6 +577,7 @@ export async function maybeSendAllotmentPaymentEmail({
       trackingToken,
       committee: reg.allottedCommittee || "N/A",
       portfolio: reg.allottedPortfolio || "N/A",
+      targetType: "individual"
     });
 
     if (res.status === "sent" || res.status === "sent-test") {
@@ -471,6 +636,7 @@ export async function maybeSendAllotmentPaymentEmail({
       trackingToken,
       committee: del.allottedCommittee || "N/A",
       portfolio: del.allottedPortfolio || "N/A",
+      targetType: "delegate"
     });
 
     if (res.status === "sent" || res.status === "sent-test") {
@@ -485,4 +651,3 @@ export async function maybeSendAllotmentPaymentEmail({
     return res;
   }
 }
-

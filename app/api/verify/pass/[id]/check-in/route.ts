@@ -121,7 +121,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
 
-      await prisma.checkInOtp.create({
+      const createdOtp = await prisma.checkInOtp.create({
         data: {
           delegateId: registration.publicId,
           otpHash: hashOtp(generatedOtp),
@@ -141,18 +141,30 @@ export async function POST(request: Request, { params }: { params: { id: string 
       console.log(`[CHECK-IN OTP REQUEST] Delegate ${registration.publicId} initiated by admin: ${checkedInBy}`);
 
       // Send OTP to all admins
-      await Promise.all(
-        adminEmails.map((email) =>
-          sendCheckInOtpEmail(
-            email,
-            registration.fullName,
-            registration.publicId,
-            registration.committee || "Not assigned",
-            registration.school || "Independent delegate",
-            generatedOtp
+      try {
+        await Promise.all(
+          adminEmails.map((email) =>
+            sendCheckInOtpEmail(
+              email,
+              registration.fullName,
+              registration.publicId,
+              registration.committee || "Not assigned",
+              registration.school || "Independent delegate",
+              generatedOtp
+            )
           )
-        )
-      );
+        );
+      } catch (err) {
+        console.error("Failed to send check-in OTP via SMTP:", err);
+        // Delete the created OTP record since sending failed
+        await prisma.checkInOtp.delete({
+          where: { id: createdOtp.id }
+        }).catch(() => {});
+        return NextResponse.json(
+          { success: false, error: "OTP could not be sent. Please check SMTP configuration." },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         success: true,

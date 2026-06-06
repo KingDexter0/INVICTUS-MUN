@@ -1,81 +1,48 @@
-import nodemailer from "nodemailer";
-import fs from "fs";
+import { config } from "dotenv";
 import path from "path";
+// Load env files
+config({ path: path.resolve(process.cwd(), ".env") });
 
-function loadEnv() {
-  try {
-    const envPath = path.join(__dirname, "..", ".env");
-    if (fs.existsSync(envPath)) {
-      const lines = fs.readFileSync(envPath, "utf8").split("\n");
-      for (const line of lines) {
-        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-        if (match) {
-          const key = match[1];
-          let value = (match[2] || "").trim();
-          // Remove wrapping quotes if present
-          if (value.startsWith('"') && value.endsWith('"')) {
-            value = value.substring(1, value.length - 1);
-          } else if (value.startsWith("'") && value.endsWith("'")) {
-            value = value.substring(1, value.length - 1);
-          }
-          process.env[key] = value;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Could not read .env file:", err);
-  }
-}
+import { verifySmtpConnection, sendAdminTestEmail } from "../lib/mail";
 
 async function main() {
-  loadEnv();
+  const args = process.argv.slice(2);
+  const targetEmail = args[0] || process.env.TEST_EMAIL_TO || process.env.SMTP_USER;
 
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const secure = process.env.SMTP_SECURE === "true";
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
-  const to = process.env.TEST_EMAIL_TO || user;
-
-  console.log("================ SMTP TEST SCRIPT ================");
-  console.log("Host:  ", host);
-  console.log("Port:  ", port);
-  console.log("Secure:", secure);
-  console.log("User:  ", user);
-  console.log("From:  ", from);
-  console.log("To:    ", to);
-  console.log("==================================================\n");
-
-  if (!host || !user || !pass || !to) {
-    console.error("Error: Missing SMTP configuration (host, user, pass) or target email (to).");
+  if (!targetEmail) {
+    console.error("Error: Please provide a target email address.");
+    console.error("Usage: npm run test:smtp -- your-email@example.com");
     process.exit(1);
   }
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  });
+  console.log("-------------------------------------------------");
+  console.log("Invictus MUN - CLI SMTP Diagnostics Tool");
+  console.log("-------------------------------------------------");
+  console.log(`SMTP Host: ${process.env.SMTP_HOST}`);
+  console.log(`SMTP Port: ${process.env.SMTP_PORT || 587}`);
+  console.log(`SMTP User: ${process.env.SMTP_USER}`);
+  console.log(`SMTP From: ${process.env.SMTP_FROM || process.env.SMTP_USER}`);
+  console.log(`Target:    ${targetEmail}`);
+  console.log("-------------------------------------------------");
 
+  console.log("Verifying SMTP connection credentials...");
   try {
-    console.log("Verifying connection to SMTP server...");
-    await transporter.verify();
-    console.log("SMTP connection verified successfully!");
-
-    console.log(`Sending test email to ${to}...`);
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject: "Invictus MUN: CLI SMTP Connection Test",
-      text: "This confirms that SMTP is working correctly via the command line test script.",
-      html: "<p>This confirms that SMTP is working correctly via the command line test script.</p>",
-    });
-
-    console.log(`Email sent successfully! MessageID: ${info.messageId}`);
+    await verifySmtpConnection();
+    console.log("✔ SMTP Connection verified successfully!");
   } catch (err) {
-    console.error("SMTP Test Failed:", err);
+    console.error("❌ SMTP Verification Failed!");
+    console.error(err);
+    process.exit(1);
+  }
+
+  console.log(`Sending diagnostic test email to: ${targetEmail}...`);
+  try {
+    const result = await sendAdminTestEmail(targetEmail);
+    console.log(`✔ Diagnostic email sent! Status: ${result.status}, MessageID: ${result.messageId}`);
+    console.log("Check the inbox of the target email to confirm receipt.");
+  } catch (err) {
+    console.error("❌ Diagnostic Email Sending Failed!");
+    console.error(err);
     process.exit(1);
   }
 }
