@@ -35,6 +35,26 @@ type Registration = {
   certificateReleasedAt?: string | null;
   certificateUrl?: string | null;
   notes?: Note[];
+  
+  // New columns
+  registrationType?: string | null;
+  accommodationRequired?: boolean;
+  paymentScreenshotUrl?: string | null;
+  totalAmountPaid?: number;
+  age?: number | null;
+  dob?: string | null;
+  gender?: string | null;
+  gradeYear?: string | null;
+  portfolio2?: string | null;
+  city?: string | null;
+  isPartOfDelegation?: boolean;
+  delegationName?: string | null;
+  refPerson?: string | null;
+  coTeacherName?: string | null;
+  coTeacherPhone?: string | null;
+  coTeacherEmail?: string | null;
+  totalDelegates?: number | null;
+  delegateNames?: string | null;
 };
 
 type Resource = {
@@ -170,6 +190,7 @@ export function PortalClient() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState("");
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [regTypeFilter, setRegTypeFilter] = useState<"all" | "individual" | "delegation">("all");
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedCommittee, setSelectedCommittee] = useState("");
@@ -534,7 +555,10 @@ export function PortalClient() {
       !selectedCommittee ||
       registration.committee1 === selectedCommittee ||
       registration.allottedCommittee === selectedCommittee;
-    return filterMatch && committeeMatch;
+    const typeMatch =
+      regTypeFilter === "all" ||
+      registration.registrationType === regTypeFilter;
+    return filterMatch && committeeMatch && typeMatch;
   });
 
   function jumpToRegistrations(filter: string, committeeName = "") {
@@ -547,6 +571,7 @@ export function PortalClient() {
     setActiveFilter("all");
     setSelectedCommittee("");
     setSearch("");
+    setRegTypeFilter("all");
   }
 
   function openRegistration(registration: Registration) {
@@ -1059,7 +1084,28 @@ export function PortalClient() {
                     <button className={`tab ${activeFilter === filter ? "active" : ""}`} data-filter={filter} onClick={() => setActiveFilter(String(filter))} key={filter}>{String(filter)[0].toUpperCase() + String(filter).slice(1)} <span>{count}</span></button>
                   ))}
                 </div>
-                {(selectedCommittee || search || activeFilter !== "all") ? <button className="filter-button" type="button" onClick={clearView}>Clear filters</button> : null}
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <select
+                    value={regTypeFilter}
+                    onChange={(e) => setRegTypeFilter(e.target.value as any)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid var(--line)",
+                      background: "#fff",
+                      color: "var(--text)",
+                      fontWeight: "600",
+                      fontSize: "13px",
+                      outline: "none",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <option value="all">All Registrations</option>
+                    <option value="individual">Individual Registrations</option>
+                    <option value="delegation">Delegation Registrations</option>
+                  </select>
+                  {(selectedCommittee || search || activeFilter !== "all" || regTypeFilter !== "all") ? <button className="filter-button" type="button" onClick={clearView}>Clear filters</button> : null}
+                </div>
               </div>
               <div className="table-wrap">
                 <table>
@@ -1069,7 +1115,27 @@ export function PortalClient() {
                       <tr><td colSpan={9}><div className="empty-state">Loading registrations...</div></td></tr>
                     ) : visible.length ? visible.map((registration, index) => (
                       <tr key={registration.publicId}>
-                        <td><div className="delegate"><span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span><span><strong>{registration.name}</strong><small>{registration.institution || registration.email}</small></span></div></td>
+                        <td>
+                          <div className="delegate">
+                            <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
+                            <span>
+                              <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                {registration.name}
+                                <span style={{
+                                  fontSize: "0.75em",
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  fontWeight: "bold",
+                                  background: registration.registrationType === "delegation" ? "rgba(109, 67, 200, 0.15)" : "rgba(0, 128, 255, 0.1)",
+                                  color: registration.registrationType === "delegation" ? "var(--purple)" : "#0080ff"
+                                }}>
+                                  {registration.registrationType === "delegation" ? "Delegation" : "Individual"}
+                                </span>
+                              </strong>
+                              <small>{registration.institution || registration.email}</small>
+                            </span>
+                          </div>
+                        </td>
                         <td>{registration.type}</td>
                         <td>{registration.committee1}</td>
                         <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
@@ -1426,13 +1492,79 @@ export function PortalClient() {
             <div className="dialog-head"><div><p className="eyebrow">REGISTRATION DETAIL</p><h2>{active.name}</h2></div><button onClick={() => setActive(null)}>x</button></div>
             <div className="detail-body">
               <div><strong>Delegate ID</strong><span>{active.publicId}</span></div>
-              <div><strong>Name</strong><span>{active.name}</span></div>
-              <div><strong>Email</strong><span>{active.email}</span></div>
-              <div><strong>Phone</strong><span>{active.phone}</span></div>
+              <div><strong>Registration Type</strong>
+                <span>
+                  <span style={{
+                    fontWeight: "bold",
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    background: active.registrationType === "delegation" ? "rgba(109, 67, 200, 0.15)" : "rgba(0, 128, 255, 0.1)",
+                    color: active.registrationType === "delegation" ? "var(--purple)" : "#0080ff"
+                  }}>
+                    {active.registrationType === "delegation" ? "Delegation" : "Individual"}
+                  </span>
+                </span>
+              </div>
+              <div><strong>Name / Delegation</strong><span>{active.name}</span></div>
+              <div><strong>Email / Teacher Email</strong><span>{active.email}</span></div>
+              <div><strong>Phone / Teacher Phone</strong><span>{active.phone}</span></div>
               <div><strong>Institution/School</strong><span>{active.institution || "Independent delegate"}</span></div>
               <div><strong>Committee</strong><span>{active.allottedCommittee || active.committee1}</span></div>
-              <div><strong>Portfolio</strong><span>{active.allottedPortfolio || active.portfolio1 || "No portfolio"}</span></div>
-              <div><strong>Payment method</strong><span>{active.paymentProofUrl ? <a href={active.paymentProofUrl} target="_blank" rel="noopener noreferrer">Open legacy proof</a> : "Razorpay online payment"}</span></div>
+              {active.registrationType !== "delegation" && (
+                <div><strong>Portfolio</strong><span>{active.allottedPortfolio || active.portfolio1 || "No portfolio"}</span></div>
+              )}
+              <div><strong>Total Fee Paid</strong><span>₹{(active.totalAmountPaid ?? active.amount).toLocaleString("en-IN")}</span></div>
+              <div><strong>Accommodation?</strong><span>{active.accommodationRequired ? "Yes" : "No"}</span></div>
+              
+              {active.registrationType === "delegation" ? (
+                <>
+                  <div><strong>Co-ordinating Teacher</strong><span>{active.coTeacherName || "-"}</span></div>
+                  <div><strong>City of Residence</strong><span>{active.city || "-"}</span></div>
+                  <div><strong>Total Delegates</strong><span>{active.totalDelegates || "-"}</span></div>
+                  <div className="wide" style={{ marginTop: "10px" }}>
+                    <strong>Delegates Roster</strong>
+                    <pre style={{
+                      whiteSpace: "pre-wrap",
+                      background: "#f6f6f6",
+                      border: "1px solid var(--line)",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      marginTop: "5px",
+                      fontFamily: "inherit",
+                      maxHeight: "150px",
+                      overflowY: "auto"
+                    }}>
+                      {active.delegateNames || "No roster provided"}
+                    </pre>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div><strong>Age</strong><span>{active.age || "-"}</span></div>
+                  <div><strong>Date of Birth</strong><span>{active.dob || "-"}</span></div>
+                  <div><strong>Gender</strong><span>{active.gender || "-"}</span></div>
+                  <div><strong>Grade / Year</strong><span>{active.gradeYear || "-"}</span></div>
+                  <div><strong>City of Residence</strong><span>{active.city || "-"}</span></div>
+                  <div><strong>Part of Delegation?</strong><span>{active.isPartOfDelegation ? `Yes (${active.delegationName || ""})` : "No"}</span></div>
+                  {active.refPerson && <div><strong>Reference Person</strong><span>{active.refPerson}</span></div>}
+                </>
+              )}
+
+              <div><strong>Payment method</strong>
+                <span>
+                  {active.paymentScreenshotUrl ? (
+                    <a href={active.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="button secondary small-btn" style={{ padding: "4px 8px", fontSize: "0.85em" }}>
+                      Open Screenshot
+                    </a>
+                  ) : active.paymentProofUrl ? (
+                    <a href={active.paymentProofUrl} target="_blank" rel="noopener noreferrer" className="button secondary small-btn" style={{ padding: "4px 8px", fontSize: "0.85em" }}>
+                      Open Legacy Proof
+                    </a>
+                  ) : (
+                    "Razorpay online payment"
+                  )}
+                </span>
+              </div>
               <div>
                 <strong>Check-in Status</strong>
                 <span>
@@ -1453,7 +1585,9 @@ export function PortalClient() {
                   </span>
                 </span>
               </div>
-              <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
+              {active.registrationType !== "delegation" && (
+                <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
+              )}
             </div>
             <div className="allotment-editor">
               <label>Allotted committee<select value={committee} onChange={(event) => setCommittee(event.target.value)}><option value="">Select committee</option>{Object.keys(capacities).map((item) => <option key={item}>{item}</option>)}</select></label>

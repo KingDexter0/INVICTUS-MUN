@@ -2,13 +2,31 @@ import type { AdminNote, Registration } from "@prisma/client";
 
 export type RegistrationWithNotes = Registration & { notes?: AdminNote[] };
 
-export function amountForType(type: string, accommodation?: string | null) {
-  if (accommodation === "Yes") {
+export function calculateRegistrationAmount(
+  registrationType: string,
+  type: string,
+  accommodationRequired: boolean,
+  totalDelegates: number = 1
+): number {
+  if (registrationType === "delegation") {
+    const count = totalDelegates >= 10 ? totalDelegates : 10; // safety fallback
+    if (count >= 20) {
+      return count * (accommodationRequired ? 4900 : 1900);
+    }
+    return count * (accommodationRequired ? 5000 : 2000);
+  }
+
+  // Individual
+  if (accommodationRequired) {
     return 5100;
   }
   if (type === "International Delegate") return 3500;
   if (type === "International Press") return 1200;
   return 2100;
+}
+
+export function amountForType(type: string, accommodation?: string | null) {
+  return calculateRegistrationAmount("individual", type, accommodation === "Yes");
 }
 
 export function serializeRegistration(registration: RegistrationWithNotes) {

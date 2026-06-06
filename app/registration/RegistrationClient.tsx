@@ -4,31 +4,115 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+const COMMITTEES = [
+  "UNGA-ESS",
+  "UNHRC",
+  "UNCSW",
+  "FIFA",
+  "Lok Sabha",
+  "Arab League",
+  "International Press / IP",
+  "UNSC",
+  "ECOFIN",
+  "IPL",
+  "DISEC",
+  "UNODC"
+];
+
 export function RegistrationClient() {
   const router = useRouter();
+  const [flow, setFlow] = useState<"choose" | "individual" | "delegation">("choose");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Individual Form States
+  const [indAccommodation, setIndAccommodation] = useState("No");
+  const [isPartOfDelegation, setIsPartOfDelegation] = useState("No");
+
+  // Delegation Form States
+  const [delAccommodation, setDelAccommodation] = useState("No");
+  const [totalDelegates, setTotalDelegates] = useState<number | "">("");
+
+  // Calculate pricing dynamically
+  const isIndAccommodation = indAccommodation === "Yes";
+  const individualPrice = isIndAccommodation ? 5100 : 2100;
+
+  const isDelAccommodation = delAccommodation === "Yes";
+  const delegatesCount = typeof totalDelegates === "number" ? totalDelegates : 0;
+  
+  let delegationPricePerPerson = 0;
+  if (delegatesCount >= 20) {
+    delegationPricePerPerson = isDelAccommodation ? 4900 : 1900;
+  } else if (delegatesCount >= 10) {
+    delegationPricePerPerson = isDelAccommodation ? 5000 : 2000;
+  }
+  const delegationTotalPrice = delegatesCount * delegationPricePerPerson;
+
   function validateForm(formData: FormData) {
     const errors: string[] = [];
-    const name = String(formData.get("name") || "").trim();
-    const email = String(formData.get("email") || "").trim();
-    const phone = String(formData.get("phone") || "").trim();
+    if (flow === "individual") {
+      const name = String(formData.get("name") || "").trim();
+      const email = String(formData.get("email") || "").trim();
+      const phone = String(formData.get("phone") || "").trim();
+      const age = Number(formData.get("age"));
+      const dob = String(formData.get("dob") || "").trim();
+      const gender = String(formData.get("gender") || "").trim();
+      const institution = String(formData.get("institution") || "").trim();
+      const gradeYear = String(formData.get("gradeYear") || "").trim();
+      const committee1 = String(formData.get("committee1") || "").trim();
+      const portfolio1 = String(formData.get("portfolio1") || "").trim();
+      const committee2 = String(formData.get("committee2") || "").trim();
+      const portfolio2 = String(formData.get("portfolio2") || "").trim();
+      const city = String(formData.get("city") || "").trim();
 
-    if (name.length < 2) errors.push("Enter your full name.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Enter a valid email address.");
-    if (!/^[0-9+\-\s()]{7,20}$/.test(phone)) errors.push("Enter a valid phone number.");
-    if (!String(formData.get("committee1") || "").trim()) errors.push("Choose your first committee preference.");
+      if (name.length < 2) errors.push("Enter your full name.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Enter a valid email address.");
+      if (!/^[0-9+\-\s()]{7,20}$/.test(phone)) errors.push("Enter a valid phone number.");
+      if (!age || age <= 0) errors.push("Enter a valid age.");
+      if (!dob) errors.push("Enter your date of birth.");
+      if (!gender) errors.push("Select your gender.");
+      if (!institution) errors.push("Enter your institution name.");
+      if (!gradeYear) errors.push("Enter your grade/year.");
+      if (!committee1) errors.push("Select committee preference 1.");
+      if (!portfolio1) errors.push("Enter portfolio preference 1.");
+      if (!committee2) errors.push("Select committee preference 2.");
+      if (!portfolio2) errors.push("Enter portfolio preference 2.");
+      if (!city) errors.push("Enter your city of residence.");
 
+      if (isPartOfDelegation === "Yes" && !String(formData.get("delegationName") || "").trim()) {
+        errors.push("Enter your delegation name.");
+      }
+    } else if (flow === "delegation") {
+      const delegationName = String(formData.get("delegationName") || "").trim();
+      const coTeacherName = String(formData.get("coTeacherName") || "").trim();
+      const coTeacherPhone = String(formData.get("coTeacherPhone") || "").trim();
+      const coTeacherEmail = String(formData.get("coTeacherEmail") || "").trim();
+      const city = String(formData.get("city") || "").trim();
+      const delegatesText = String(formData.get("delegateNames") || "").trim();
+
+      if (!delegationName) errors.push("Enter delegation name.");
+      if (!coTeacherName) errors.push("Enter coordinating teacher / head delegate name.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(coTeacherEmail)) errors.push("Enter a valid co-ordinating teacher email.");
+      if (!/^[0-9+\-\s()]{7,20}$/.test(coTeacherPhone)) errors.push("Enter a valid co-ordinating teacher phone number.");
+      if (!city) errors.push("Enter city of residence.");
+      if (delegatesCount < 10) {
+        errors.push("Minimum delegation size is 10 delegates.");
+      }
+      if (!delegatesText) errors.push("Enter the names of delegates.");
+    }
     return errors;
   }
 
   async function submitRegistration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    
+    // Add flow/type variables
+    formData.append("registrationType", flow);
+    formData.append("accommodation", flow === "individual" ? indAccommodation : delAccommodation);
+    
     const errors = validateForm(formData);
-
     if (errors.length) {
       setMessage(errors.join(" "));
       setMessageType("error");
@@ -54,7 +138,7 @@ export function RegistrationClient() {
         return;
       }
 
-      setMessage("Registration saved successfully. Opening Razorpay payment from your dashboard...");
+      setMessage("Registration saved successfully! Opening dashboard...");
       setMessageType("success");
       router.push(`/dashboard?id=${encodeURIComponent(payload.id)}`);
     } catch {
@@ -65,45 +149,215 @@ export function RegistrationClient() {
     }
   }
 
+  if (flow === "choose") {
+    return (
+      <div className="registration-flow-chooser">
+        <h2>Select Registration Type</h2>
+        <p className="flow-intro">Choose how you want to participate in Invictus MUN 2026.</p>
+        <div className="flow-cards">
+          <button type="button" className="flow-card-btn" onClick={() => setFlow("individual")}>
+            <div className="card-icon">👤</div>
+            <h3>Individual Delegate</h3>
+            <p>Register as a single delegate representing a chosen portfolio and committee.</p>
+            <span className="price-tag">Starting from ₹2,100</span>
+          </button>
+          <button type="button" className="flow-card-btn" onClick={() => setFlow("delegation")}>
+            <div className="card-icon">👥</div>
+            <h3>Delegation / Group</h3>
+            <p>Register a delegation of 10+ members with coordinating teacher or head delegate details and group discounts.</p>
+            <span className="price-tag">Starting from ₹1,900 / person</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div style={{ width: "100%" }}>
+      <button type="button" className="button secondary" onClick={() => setFlow("choose")} style={{ marginBottom: "20px" }}>
+        ← Change Registration Type
+      </button>
+
       <form className="registration-form" id="registrationForm" onSubmit={submitRegistration}>
-        <fieldset>
-          <legend>Personal Details</legend>
-          <label>Full name<input required name="name" minLength={2} autoComplete="name" placeholder="Your full name" /></label>
-          <label>Email<input required type="email" name="email" autoComplete="email" placeholder="you@example.com" /></label>
-          <label>Phone<input required name="phone" minLength={7} maxLength={20} inputMode="tel" autoComplete="tel" placeholder="+91 98765 43210" /></label>
-          <label>Institution<input name="institution" placeholder="School / college name" /></label>
-        </fieldset>
-        <fieldset>
-          <legend>Registration Details</legend>
-          <label>Registration type<select name="type"><option>Individual Delegate</option><option>Delegation Delegate</option><option>International Delegate</option><option>International Press</option><option>Executive Board</option><option>Secretariat</option></select></label>
-          <label>Committee preference 1<select name="committee1"><option>UNHRC</option><option>Arab League</option><option>UNCSW</option><option>FIFA</option><option>UNGA Emergency Special Session</option><option>Lok Sabha</option><option>International Press</option></select></label>
-          <label>Portfolio preference 1<input name="portfolio1" placeholder="Country / role preference" /></label>
-          <label>Committee preference 2<select name="committee2"><option>Arab League</option><option>UNHRC</option><option>UNCSW</option><option>FIFA</option><option>Lok Sabha</option><option>International Press</option></select></label>
-        </fieldset>
-        <fieldset>
-          <legend>Razorpay Payment</legend>
-          <div className="empty-panel wide">
-            <h2>Pay online after registration</h2>
-            <p>
-              Submit this form first. Your dashboard will open with a secure Razorpay payment button
-              for the exact registration fee. Payment status updates automatically after successful payment.
-            </p>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Accommodation</legend>
-          <label>Accommodation required?<select name="accommodation"><option>No</option><option>Yes</option></select></label>
-          <label>Transport required?<select name="transport"><option>No</option><option>Yes</option></select></label>
-          <label>Arrival city<input name="arrivalCity" placeholder="Delhi, Mumbai, Dubai..." /></label>
-          <label>Special requirements<input name="requirements" placeholder="Food, medical, access needs..." /></label>
-        </fieldset>
-        <button className="button primary" type="submit" disabled={isSubmitting}>
+        {flow === "individual" ? (
+          <>
+            <fieldset>
+              <legend>Personal Details</legend>
+              <label>Full name<input required name="name" minLength={2} placeholder="Your full name" /></label>
+              <label>Age<input required type="number" name="age" min={1} placeholder="Your age" /></label>
+              <label>Date of Birth<input required type="date" name="dob" /></label>
+              <label>Gender
+                <select name="gender" required>
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+              <label className="wide">School / College / Institution<input required name="institution" placeholder="School / college / institution name" /></label>
+              <label>Grade / Year<input required name="gradeYear" placeholder="e.g. 10th grade, 2nd year" /></label>
+              <label>City of Residence<input required name="city" placeholder="e.g. Delhi, Mumbai" /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Contact Information</legend>
+              <label>Email ID<input required type="email" name="email" placeholder="you@example.com" /></label>
+              <label>Phone Number / WhatsApp Number<input required name="phone" minLength={7} maxLength={20} placeholder="+91 98765 43210" /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Committee Preferences</legend>
+              <label>Committee Preference 1
+                <select name="committee1" required>
+                  <option value="">Select committee</option>
+                  {COMMITTEES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label>Portfolio Preference for Committee 1<input required name="portfolio1" placeholder="Country / role preference" /></label>
+              <label>Committee Preference 2
+                <select name="committee2" required>
+                  <option value="">Select committee</option>
+                  {COMMITTEES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label>Portfolio Preference for Committee 2<input required name="portfolio2" placeholder="Country / role preference" /></label>
+              <label className="wide">Prior MUN Experience<textarea name="experience" placeholder="Detail any prior MUN experience (optional)" rows={3} /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Logistics & Delegation</legend>
+              <label>Are you availing accommodation?
+                <select value={indAccommodation} onChange={(e) => setIndAccommodation(e.target.value)} required>
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+              <label>Are you part of a delegation?
+                <select value={isPartOfDelegation} onChange={(e) => setIsPartOfDelegation(e.target.value)} required>
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+              {isPartOfDelegation === "Yes" && (
+                <label className="wide">Delegation Name<input required name="delegationName" placeholder="Enter delegation name" /></label>
+              )}
+              <label>Reference Person (optional)<input name="refPerson" placeholder="Name of referrer" /></label>
+              <label className="wide">Anything else you wish to tell us?<textarea name="requirements" placeholder="Food, medical, access needs or notes (optional)" rows={2} /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Payment Details</legend>
+              <div className="wide" style={{ marginBottom: "15px" }}>
+                <div className="empty-panel" style={{ padding: "20px", background: "rgba(109,67,200,.04)", border: "1px solid rgba(109,67,200,.1)", borderRadius: "12px" }}>
+                  <h3 style={{ fontWeight: "bold", color: "var(--purple)", marginBottom: "8px" }}>Calculated Registration Fee</h3>
+                  <p style={{ fontSize: "1.8em", fontWeight: "bold", margin: "10px 0 0" }}>
+                    ₹{individualPrice.toLocaleString("en-IN")}
+                  </p>
+                  <small style={{ color: "var(--text-muted)", display: "block", marginTop: "5px" }}>
+                    {isIndAccommodation ? "Includes delegate fee + accommodation" : "Delegate fee only"}
+                  </small>
+                </div>
+              </div>
+              <label className="wide">Payment Screenshot Upload (UPI / Bank Transfer)
+                <input required type="file" name="paymentScreenshot" accept="image/*,application/pdf" style={{ marginTop: "10px" }} />
+              </label>
+            </fieldset>
+          </>
+        ) : (
+          <>
+            <fieldset>
+              <legend>Delegation Details</legend>
+              <label>Name of Delegation<input required name="delegationName" placeholder="Delegation name" /></label>
+              <label>Name of Institution (optional)<input name="institution" placeholder="School / college name" /></label>
+              <label>City of Residence<input required name="city" placeholder="e.g. Delhi, Mumbai" /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Co-ordinating Teacher / Head Delegate</legend>
+              <label>Full Name<input required name="coTeacherName" placeholder="Co-ordinating Teacher / Head Delegate name" /></label>
+              <label>Contact Number<input required name="coTeacherPhone" placeholder="Contact number" /></label>
+              <label className="wide">Email ID<input required type="email" name="coTeacherEmail" placeholder="teacher@school.com" /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Delegates Roster</legend>
+              <label className="wide">Total Number of Delegates
+                <input
+                  required
+                  type="number"
+                  name="totalDelegates"
+                  min={1}
+                  value={totalDelegates}
+                  onChange={(e) => {
+                    const val = e.target.value === "" ? "" : Number(e.target.value);
+                    setTotalDelegates(val);
+                  }}
+                  placeholder="Minimum 10 delegates required"
+                />
+              </label>
+              {totalDelegates !== "" && delegatesCount < 10 && (
+                <div className="wide form-message error" style={{ marginTop: "0", marginBottom: "15px", fontWeight: "bold" }}>
+                  ⚠️ Minimum delegation size is 10 delegates. Please use Individual Delegate Registration or contact the secretariat.
+                </div>
+              )}
+              <label className="wide">Names of Delegates Presently
+                <textarea
+                  required
+                  name="delegateNames"
+                  placeholder="Enter the full names of all delegates, separated by commas or lines"
+                  rows={6}
+                />
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Logistics & Accommodation</legend>
+              <label className="wide">Do you require accommodation?
+                <select value={delAccommodation} onChange={(e) => setDelAccommodation(e.target.value)} required>
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+              <label className="wide">Anything else you wish to tell us?<textarea name="requirements" placeholder="Logistics, food or medical needs (optional)" rows={2} /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Payment Details</legend>
+              <div className="wide" style={{ marginBottom: "15px" }}>
+                <div className="empty-panel" style={{ padding: "20px", background: "rgba(109,67,200,.04)", border: "1px solid rgba(109,67,200,.1)", borderRadius: "12px" }}>
+                  <h3 style={{ fontWeight: "bold", color: "var(--purple)", marginBottom: "8px" }}>Calculated Registration Fee</h3>
+                  {delegatesCount < 10 ? (
+                    <p style={{ color: "var(--text-muted)", fontStyle: "italic", margin: "10px 0 0" }}>
+                      Please enter a valid delegate count (min 10)
+                    </p>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: "1.8em", fontWeight: "bold", margin: "10px 0 0" }}>
+                        ₹{delegationTotalPrice.toLocaleString("en-IN")}
+                      </p>
+                      <small style={{ color: "var(--text-muted)", display: "block", marginTop: "5px" }}>
+                        {delegatesCount} delegates @ ₹{delegationPricePerPerson.toLocaleString("en-IN")} per delegate ({isDelAccommodation ? "with accommodation" : "without accommodation"})
+                      </small>
+                    </>
+                  )}
+                </div>
+              </div>
+              <label className="wide">Payment Screenshot Upload (UPI / Bank Transfer)
+                <input required type="file" name="paymentScreenshot" accept="image/*,application/pdf" style={{ marginTop: "10px" }} />
+              </label>
+            </fieldset>
+          </>
+        )}
+
+        <button
+          className="button primary"
+          type="submit"
+          disabled={isSubmitting || (flow === "delegation" && delegatesCount < 10)}
+        >
           {isSubmitting ? "Submitting..." : "Submit Registration"}
         </button>
         {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
       </form>
-    </>
+    </div>
   );
 }

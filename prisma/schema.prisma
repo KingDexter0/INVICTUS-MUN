@@ -43,6 +43,25 @@ model Registration {
   certificateUrl       String?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
+  registrationType      String      @default("individual")
+  accommodationRequired Boolean     @default(false)
+  paymentScreenshotUrl  String?
+  paymentScreenshotPublicId String?
+  totalAmountPaid       Int         @default(0)
+  age                   Int?
+  dob                   String?
+  gender                String?
+  gradeYear             String?
+  portfolio2            String?
+  city                  String?
+  isPartOfDelegation    Boolean     @default(false)
+  delegationName        String?
+  refPerson             String?
+  coTeacherName         String?
+  coTeacherPhone        String?
+  coTeacherEmail        String?
+  totalDelegates        Int?
+  delegateNames         String?
   notes                AdminNote[]
   paymentTransactions  PaymentTransaction[]
   certificates         Certificate[]

@@ -3,8 +3,9 @@ import { Prisma } from "@prisma/client";
 import { assertAdmin } from "../../../lib/admin";
 import { sendRegistrationEmail } from "../../../lib/email";
 import { prisma } from "../../../lib/prisma";
+import { uploadPaymentProof } from "../../../lib/cloudinary";
 import {
-  amountForType,
+  calculateRegistrationAmount,
   publicIdFromCount,
   serializeRegistration
 } from "../../../lib/registrations";
@@ -24,18 +25,62 @@ function numberOrNull(formData: FormData, key: string) {
 
 function validateRegistration(formData: FormData) {
   const errors: string[] = [];
-  const email = text(formData, "email");
-  const phone = text(formData, "phone");
-  const muns = text(formData, "muns");
-  const awards = text(formData, "awards");
+  const registrationType = text(formData, "registrationType") || "individual";
 
-  if (text(formData, "name").length < 2) errors.push("Enter the delegate's full name.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Enter a valid email address.");
-  if (!/^[0-9+\-\s()]{7,20}$/.test(phone)) errors.push("Enter a valid phone number.");
-  if (!text(formData, "type")) errors.push("Choose a registration type.");
-  if (!text(formData, "committee1")) errors.push("Choose the first committee preference.");
-  if (muns && Number(muns) < 0) errors.push("MUNs attended cannot be negative.");
-  if (awards && Number(awards) < 0) errors.push("Awards won cannot be negative.");
+  if (registrationType === "individual") {
+    const email = text(formData, "email");
+    const phone = text(formData, "phone");
+    const name = text(formData, "name");
+    const age = numberOrNull(formData, "age");
+    const dob = text(formData, "dob");
+    const gender = text(formData, "gender");
+    const institution = text(formData, "institution");
+    const gradeYear = text(formData, "gradeYear");
+    const committee1 = text(formData, "committee1");
+    const portfolio1 = text(formData, "portfolio1");
+    const committee2 = text(formData, "committee2");
+    const portfolio2 = text(formData, "portfolio2");
+    const city = text(formData, "city");
+
+    if (name.length < 2) errors.push("Enter your full name.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Enter a valid email address.");
+    if (!/^[0-9+\-\s()]{7,20}$/.test(phone)) errors.push("Enter a valid phone number.");
+    if (!age || age <= 0) errors.push("Enter a valid age.");
+    if (!dob) errors.push("Enter your date of birth.");
+    if (!gender) errors.push("Select your gender.");
+    if (!institution) errors.push("Enter your institution.");
+    if (!gradeYear) errors.push("Enter your grade/year.");
+    if (!committee1) errors.push("Select committee preference 1.");
+    if (!portfolio1) errors.push("Enter portfolio preference 1.");
+    if (!committee2) errors.push("Select committee preference 2.");
+    if (!portfolio2) errors.push("Enter portfolio preference 2.");
+    if (!city) errors.push("Enter your city of residence.");
+
+    const isPartOfDelegation = text(formData, "isPartOfDelegation") === "Yes";
+    if (isPartOfDelegation && !text(formData, "delegationName")) {
+      errors.push("Enter your delegation name.");
+    }
+  } else if (registrationType === "delegation") {
+    const delegationName = text(formData, "delegationName");
+    const coTeacherName = text(formData, "coTeacherName");
+    const coTeacherPhone = text(formData, "coTeacherPhone");
+    const coTeacherEmail = text(formData, "coTeacherEmail");
+    const city = text(formData, "city");
+    const totalDelegates = numberOrNull(formData, "totalDelegates");
+    const delegateNames = text(formData, "delegateNames");
+
+    if (!delegationName) errors.push("Enter delegation name.");
+    if (!coTeacherName) errors.push("Enter coordinating teacher / head delegate name.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(coTeacherEmail)) errors.push("Enter a valid co-ordinating teacher email.");
+    if (!/^[0-9+\-\s()]{7,20}$/.test(coTeacherPhone)) errors.push("Enter a valid co-ordinating teacher phone number.");
+    if (!city) errors.push("Enter city of residence.");
+    if (!totalDelegates || totalDelegates < 10) {
+      errors.push("Minimum delegation size is 10 delegates. Please use Individual Delegate Registration or contact the secretariat.");
+    }
+    if (!delegateNames) errors.push("Enter the names of delegates.");
+  } else {
+    errors.push("Invalid registration type.");
+  }
 
   return errors;
 }
@@ -52,32 +97,88 @@ export async function POST(request: Request) {
       );
     }
 
-    const type = text(formData, "type") || "Individual Delegate";
+    const registrationType = text(formData, "registrationType") || "individual";
+    const type = text(formData, "type") || (registrationType === "delegation" ? "Group Delegation" : "Individual Delegate");
     const count = await prisma.registration.count();
+    
+    // File upload logic for screenshot
+    const screenshotFile = (formData.get("paymentScreenshot") || formData.get("file") || formData.get("paymentProof")) as File | null;
+    let screenshotUrl = null;
+    let screenshotPublicId = null;
+    if (screenshotFile && screenshotFile.size > 0) {
+      const uploadResult = await uploadPaymentProof(screenshotFile).catch(err => {
+        console.error("Cloudinary upload error:", err);
+        return null;
+      });
+      if (uploadResult) {
+        screenshotUrl = uploadResult.secure_url;
+        screenshotPublicId = uploadResult.public_id;
+      }
+    }
 
+    const accommodationVal = text(formData, "accommodation") || "No";
+    const accommodationRequired = accommodationVal === "Yes";
+    const totalDelegatesVal = numberOrNull(formData, "totalDelegates") || 1;
+
+    const calculatedAmount = calculateRegistrationAmount(
+      registrationType,
+      type,
+      accommodationRequired,
+      totalDelegatesVal
+    );
+
+    // Prepare fields based on type
+    const isIndividual = registrationType === "individual";
+    const name = isIndividual ? text(formData, "name") : text(formData, "delegationName");
+    const email = isIndividual ? text(formData, "email") : text(formData, "coTeacherEmail");
+    const phone = isIndividual ? text(formData, "phone") : text(formData, "coTeacherPhone");
+    const institution = text(formData, "institution") || null;
+    const city = text(formData, "city") || null;
+    
     const registration = await prisma.registration.create({
       data: {
         publicId: publicIdFromCount(count),
-        name: text(formData, "name"),
-        email: text(formData, "email"),
-        phone: text(formData, "phone"),
-        institution: text(formData, "institution") || null,
+        name,
+        email,
+        phone,
+        institution,
         type,
-        committee1: text(formData, "committee1"),
-        committee2: text(formData, "committee2") || null,
-        portfolio1: text(formData, "portfolio1") || null,
-        muns: numberOrNull(formData, "muns"),
-        awards: numberOrNull(formData, "awards"),
-        experience: text(formData, "experience") || null,
+        committee1: isIndividual ? text(formData, "committee1") : "Group Delegation",
+        committee2: isIndividual ? (text(formData, "committee2") || null) : null,
+        portfolio1: isIndividual ? (text(formData, "portfolio1") || null) : null,
+        muns: isIndividual ? numberOrNull(formData, "muns") : null,
+        awards: isIndividual ? numberOrNull(formData, "awards") : null,
+        experience: isIndividual ? (text(formData, "experience") || null) : null,
         utr: text(formData, "utr") || null,
-        amount: amountForType(type, text(formData, "accommodation")),
-        paymentProofUrl: null,
-        paymentProofPublicId: null,
-        accommodation: text(formData, "accommodation") || null,
+        amount: calculatedAmount,
+        paymentProofUrl: screenshotUrl,
+        paymentProofPublicId: screenshotPublicId,
+        accommodation: accommodationVal,
         transport: text(formData, "transport") || null,
         arrivalCity: text(formData, "arrivalCity") || null,
         requirements: text(formData, "requirements") || null,
-        paymentStatus: "Pending"
+        paymentStatus: screenshotUrl ? "Review" : "Pending", // Automatically move to Review if screenshot uploaded
+        
+        // New columns
+        registrationType,
+        accommodationRequired,
+        paymentScreenshotUrl: screenshotUrl,
+        paymentScreenshotPublicId: screenshotPublicId,
+        totalAmountPaid: calculatedAmount,
+        age: isIndividual ? numberOrNull(formData, "age") : null,
+        dob: isIndividual ? text(formData, "dob") : null,
+        gender: isIndividual ? text(formData, "gender") : null,
+        gradeYear: isIndividual ? text(formData, "gradeYear") : null,
+        portfolio2: isIndividual ? text(formData, "portfolio2") : null,
+        city,
+        isPartOfDelegation: isIndividual ? (text(formData, "isPartOfDelegation") === "Yes") : false,
+        delegationName: text(formData, "delegationName") || null,
+        refPerson: isIndividual ? text(formData, "refPerson") : null,
+        coTeacherName: !isIndividual ? text(formData, "coTeacherName") : null,
+        coTeacherPhone: !isIndividual ? text(formData, "coTeacherPhone") : null,
+        coTeacherEmail: !isIndividual ? text(formData, "coTeacherEmail") : null,
+        totalDelegates: !isIndividual ? totalDelegatesVal : null,
+        delegateNames: !isIndividual ? text(formData, "delegateNames") : null
       }
     });
 
@@ -86,11 +187,11 @@ export async function POST(request: Request) {
       name: registration.name,
       publicId: registration.publicId,
       heading: "Registration submitted",
-      action: "Your Invictus MUN registration has been submitted successfully. Please open your dashboard to complete payment securely through Razorpay.",
+      action: "Your Invictus MUN registration has been submitted successfully. Please open your dashboard to track your verification status.",
       dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
       details: [
         ["Registration type", registration.type],
-        ["Committee preference", registration.committee1],
+        ["Role/Delegation", registration.registrationType === "delegation" ? "Delegation Group" : (registration.committee1 || "Delegate")],
         ["Payment status", registration.paymentStatus],
         ["Registration status", registration.registrationStatus]
       ]
@@ -119,10 +220,12 @@ export async function GET(request: Request) {
     const search = searchParams.get("search")?.trim();
     const paymentStatus = searchParams.get("paymentStatus")?.trim();
     const registrationStatus = searchParams.get("registrationStatus")?.trim();
+    const registrationType = searchParams.get("registrationType")?.trim();
 
     const where: Prisma.RegistrationWhereInput = {
       ...(paymentStatus ? { paymentStatus } : {}),
       ...(registrationStatus ? { registrationStatus } : {}),
+      ...(registrationType ? { registrationType } : {}),
       ...(search
         ? {
             OR: [
