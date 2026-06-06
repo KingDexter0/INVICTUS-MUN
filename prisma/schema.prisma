@@ -23,7 +23,7 @@ model Registration {
   awards               Int?
   experience           String?
   utr                  String?
-  amount               Int         @default(1500)
+  amount               Int         @default(2100)
   paymentProofUrl      String?
   paymentProofPublicId String?
   accommodation        String?

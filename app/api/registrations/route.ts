@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         awards: numberOrNull(formData, "awards"),
         experience: text(formData, "experience") || null,
         utr: text(formData, "utr") || null,
-        amount: amountForType(type),
+        amount: amountForType(type, text(formData, "accommodation")),
         paymentProofUrl: null,
         paymentProofPublicId: null,
         accommodation: text(formData, "accommodation") || null,

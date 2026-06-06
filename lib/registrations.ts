@@ -2,10 +2,13 @@ import type { AdminNote, Registration } from "@prisma/client";
 
 export type RegistrationWithNotes = Registration & { notes?: AdminNote[] };
 
-export function amountForType(type: string) {
+export function amountForType(type: string, accommodation?: string | null) {
+  if (accommodation === "Yes") {
+    return 5100;
+  }
   if (type === "International Delegate") return 3500;
   if (type === "International Press") return 1200;
-  return 1500;
+  return 2100;
 }
 
 export function serializeRegistration(registration: RegistrationWithNotes) {
