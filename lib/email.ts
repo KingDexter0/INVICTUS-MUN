@@ -80,7 +80,7 @@ function baseTemplate({ heading, name, publicId, action, dashboardPath = "/dashb
   `;
 }
 
-async function sendEmail(to: string, subject: string, html: string, trigger = subject): Promise<EmailStatus> {
+async function sendEmail(to: string, subject: string, html: string, trigger = subject, bypassTestMode = false): Promise<EmailStatus> {
   if (!configured()) {
     console.warn("Email skipped: Resend environment variables are not configured.");
     return { status: "skipped" };
@@ -88,8 +88,8 @@ async function sendEmail(to: string, subject: string, html: string, trigger = su
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const actualTo = isTestMode() ? process.env.TEST_EMAIL_TO as string : to;
-    const finalHtml = isTestMode() ? html.replace(testModeNotice("", trigger), testModeNotice(to, trigger)) : html;
+    const actualTo = (isTestMode() && !bypassTestMode) ? process.env.TEST_EMAIL_TO as string : to;
+    const finalHtml = (isTestMode() && !bypassTestMode) ? html.replace(testModeNotice("", trigger), testModeNotice(to, trigger)) : html;
     const { error } = await resend.emails.send({
       from: fromEmail(),
       to: actualTo,
@@ -182,7 +182,8 @@ export async function sendOtpEmail(to: string, otp: string) {
         </div>
       </div>
     `,
-    "Check-In OTP"
+    "Check-In OTP",
+    true
   );
 }
 
