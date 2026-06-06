@@ -1168,6 +1168,7 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => document.querySelector("#testimonials")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">T</span> Testimonials <b>{testimonials.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#admin-users")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">U</span> Admin Users <b>{adminUsers.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#ops-tools")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">X</span> Ops Tools</button>
+          <Link className="nav-item" href="/admin-portal/email-campaign"><span className="nav-icon">✉</span> Email Campaign</Link>
         </nav>
         <div className="sidebar-bottom">
           <div className="admin-card"><div className="avatar">YP</div><span><strong>Yoksh Patil</strong><small>Super Admin</small></span></div>
@@ -1203,7 +1204,7 @@ export function PortalClient() {
         <section className="content" id="overview">
           <div className="page-heading">
             <div><p className="eyebrow">ADMIN PORTAL</p><h1>Good evening, Yoksh.</h1><p>Here is the live conference workspace.</p></div>
-            <div className="heading-actions"><Link className="button primary" href="/admin-portal/check-in">QR Check-in</Link>{importReport && (<button className="button secondary" type="button" onClick={() => setShowImportReport(true)}>View import report</button>)}<button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
+            <div className="heading-actions"><Link className="button primary" href="/admin-portal/check-in">QR Check-in</Link><Link className="button primary" href="/admin-portal/email-campaign" style={{ background: "#6d43c8", color: "#fff" }}>✉ Bulk Allotment Emails</Link>{importReport && (<button className="button secondary" type="button" onClick={() => setShowImportReport(true)}>View import report</button>)}<button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
           </div>
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
 
