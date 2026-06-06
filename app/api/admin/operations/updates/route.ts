@@ -15,11 +15,11 @@ export async function GET(request: Request) {
   const encoder = new TextEncoder();
 
   // Send initial connection success message
-  writer.write(encoder.encode("event: connected\ndata: {}\n\n"));
+  void writer.write(encoder.encode("event: connected\ndata: {}\n\n")).catch(() => {});
 
-  const onUpdate = (event: { type: string; data: any }) => {
+  const onUpdate = async (event: { type: string; data: any }) => {
     try {
-      writer.write(
+      await writer.write(
         encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`)
       );
     } catch (err) {
@@ -30,18 +30,18 @@ export async function GET(request: Request) {
   operationsEmitter.on("update", onUpdate);
 
   // Ping interval (15 seconds) to prevent timeout
-  const pingInterval = setInterval(() => {
+  const pingInterval = setInterval(async () => {
     try {
-      writer.write(encoder.encode("event: ping\ndata: {}\n\n"));
+      await writer.write(encoder.encode("event: ping\ndata: {}\n\n"));
     } catch {}
   }, 15000);
 
   // Handle connection close
-  request.signal.addEventListener("abort", () => {
+  request.signal.addEventListener("abort", async () => {
     clearInterval(pingInterval);
     operationsEmitter.off("update", onUpdate);
     try {
-      writer.close();
+      await writer.close();
     } catch {}
   });
 
