@@ -647,3 +647,89 @@ export async function maybeSendAllotmentPaymentEmail({
     return res;
   }
 }
+
+// ─── Welcome + Allotment one-time campaign email ────────────────────────────
+
+export async function sendWelcomeAllotmentEmail({
+  to,
+  name,
+  publicId,
+  trackingToken,
+  registrationType,
+  delegationName,
+  committee,
+  portfolio,
+  paymentStatus,
+  targetType = "individual"
+}: {
+  to: string;
+  name: string;
+  publicId: string;
+  trackingToken: string;
+  registrationType: "individual" | "delegate";
+  delegationName?: string | null;
+  committee?: string | null;
+  portfolio?: string | null;
+  paymentStatus?: string | null;
+  targetType?: string;
+}) {
+  const dashboardUrl = getDelegateDashboardUrl(trackingToken);
+
+  const detailRows = [
+    registrationType === "delegate" && delegationName
+      ? `<p style="margin:6px 0;color:#565061"><strong>Delegation:</strong> ${delegationName}</p>`
+      : "",
+    `<p style="margin:6px 0;color:#565061"><strong>Registration Type:</strong> ${registrationType === "delegate" ? "Delegation Delegate" : "Individual"}</p>`,
+    committee
+      ? `<p style="margin:6px 0;color:#565061"><strong>Committee:</strong> ${committee}</p>`
+      : "",
+    portfolio
+      ? `<p style="margin:6px 0;color:#565061"><strong>Portfolio / Allotment:</strong> ${portfolio}</p>`
+      : "",
+    paymentStatus
+      ? `<p style="margin:6px 0;color:#565061"><strong>Payment Status:</strong> ${paymentStatus}</p>`
+      : ""
+  ]
+    .filter(Boolean)
+    .join("");
+
+  return sendEmail({
+    to,
+    subject: "Welcome to Invictus MUN 2026 | Your Portfolio Has Been Allotted",
+    html: `
+      <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#181424">
+        <div style="max-width:620px;margin:0 auto;padding:28px">
+          ${testModeNotice(to, "Welcome & Allotment Campaign")}
+          <div style="border-left:5px solid #6d43c8;padding-left:16px;margin-bottom:24px">
+            <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
+            <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">Welcome to Invictus MUN 2026!</h1>
+          </div>
+          <p style="font-size:16px;line-height:1.7">Dear ${name},</p>
+          <p style="font-size:16px;line-height:1.7">
+            Your registration has been recorded and your allotted portfolio details are confirmed.
+            Please find your details below and use the button to access your delegate dashboard.
+          </p>
+          <div style="margin:20px 0;padding:16px;border:1px solid #e9e5f0;border-radius:14px;background:#fbf9ff">
+            <p style="margin:6px 0;color:#565061"><strong>Delegate ID:</strong> ${publicId}</p>
+            ${detailRows}
+          </div>
+          <div style="margin:24px 0">
+            <a href="${dashboardUrl}" style="display:inline-block;padding:14px 28px;border-radius:999px;background:#6d43c8;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px">
+              Open Delegate Dashboard
+            </a>
+          </div>
+          <p style="margin-top:8px;color:#706b7e;font-size:13px">
+            Dashboard link: <a href="${dashboardUrl}" style="color:#6d43c8">${dashboardUrl}</a>
+          </p>
+          <p style="margin-top:24px;color:#706b7e;font-size:13px;line-height:1.6;border-top:1px solid #eee;padding-top:16px">
+            Regards,<br><strong>Invictus MUN 2026 Secretariat</strong><br>
+            This is an automated one-time email from Invictus MUN. Please do not reply directly.
+          </p>
+        </div>
+      </div>
+    `,
+    type: "welcome_allotment",
+    targetType,
+    targetId: publicId
+  });
+}
