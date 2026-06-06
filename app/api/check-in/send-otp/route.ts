@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { sendOtpEmail } from "../../../../lib/email";
 
+import { createHash } from "node:crypto";
+
 export const dynamic = "force-dynamic";
+
+function hashOtp(otp: string) {
+  return createHash("sha256").update(otp).digest("hex");
+}
 
 export async function POST() {
   try {
@@ -13,8 +19,10 @@ export async function POST() {
     // Save to DB
     await prisma.checkInOtp.create({
       data: {
-        otp,
-        expiresAt
+        delegateId: "STAFF_SESSION",
+        otpHash: hashOtp(otp),
+        expiresAt,
+        used: false
       }
     });
 

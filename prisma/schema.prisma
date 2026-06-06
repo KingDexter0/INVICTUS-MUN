@@ -225,9 +225,13 @@ model AdminNote {
 }
 
 model CheckInOtp {
-  id        String   @id @default(cuid())
-  otp       String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  delegateId String
+  otpHash    String
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([delegateId])
 }
 

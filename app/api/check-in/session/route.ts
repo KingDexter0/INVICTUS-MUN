@@ -19,18 +19,24 @@ export async function POST(request: Request) {
     // 2. Check if it's a valid database OTP
     let isOtpValid = false;
     if (!isStaticPasscodeValid) {
+      const { createHash } = await import("node:crypto");
+      const hashedPasscode = createHash("sha256").update(passcode).digest("hex");
+
       const activeOtp = await prisma.checkInOtp.findFirst({
         where: {
-          otp: passcode,
-          expiresAt: { gt: new Date() }
+          delegateId: "STAFF_SESSION",
+          otpHash: hashedPasscode,
+          expiresAt: { gt: new Date() },
+          used: false
         }
       });
 
       if (activeOtp) {
         isOtpValid = true;
         // Invalidate/delete the used OTP code
-        await prisma.checkInOtp.delete({
-          where: { id: activeOtp.id }
+        await prisma.checkInOtp.update({
+          where: { id: activeOtp.id },
+          data: { used: true }
         }).catch(() => null);
       }
     }

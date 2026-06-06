@@ -80,6 +80,9 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
                     publicId={registration.publicId}
                     initialCheckedIn={registration.checkedIn}
                     initialCheckedInAt={registration.checkedInAt?.toISOString() || null}
+                    delegateName={registration.name}
+                    delegateCommittee={registration.allottedCommittee || registration.committee1 || "Not assigned"}
+                    delegateInstitution={registration.institution || "Independent delegate"}
                   />
                 ) : (
                   <p className="form-message error">Check-in is locked until allotment is released.</p>
