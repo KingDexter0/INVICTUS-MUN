@@ -284,7 +284,7 @@ export function DashboardClient() {
               <div className="resource-list compact">
                 {visibleResources.length ? visibleResources.map((resource) => (
                   isSafeExternalUrl(resource.fileUrl) ? (
-                  <a key={resource.id} href={`/api/resources/${resource.id}/download`}>
+                  <a key={resource.id} href={`/api/resources/${resource.id}/download`} download>
                     <strong>{resource.title}</strong>
                     <span>{resource.category} - {resource.accessLevel}</span>
                   </a>

@@ -74,7 +74,7 @@ export default async function ResourcesPage() {
                           </div>
                           <div className="public-resource-meta">
                             <span>Published {formatDate(resource.createdAt)}</span>
-                            <a className="button primary small" href={`/api/resources/${resource.id}/download`}>
+                            <a className="button primary small" href={`/api/resources/${resource.id}/download`} download>
                               Download Resource
                             </a>
                           </div>

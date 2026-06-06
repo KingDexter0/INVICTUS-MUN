@@ -59,6 +59,14 @@ function cleanBaseName(resource: { title: string; category: string }) {
   return [resource.category, resource.title].map(cleanFilenamePart).filter(Boolean).join("-") || "invictus-resource";
 }
 
+function cloudinaryRawCandidate(fileUrl: string) {
+  if (!fileUrl.includes("/image/upload/")) {
+    return "";
+  }
+
+  return fileUrl.replace("/image/upload/", "/raw/upload/");
+}
+
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
     const resource = await prisma.resource.findUnique({
@@ -71,9 +79,19 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     }
 
     const cleanName = cleanBaseName(resource);
-    const upstream = await fetch(resource.fileUrl, { cache: "no-store" });
-    if (!upstream.ok || !upstream.body) {
-      return NextResponse.redirect(resource.fileUrl);
+    const candidateUrls = [resource.fileUrl, cloudinaryRawCandidate(resource.fileUrl)].filter(Boolean);
+    let upstream: Response | null = null;
+
+    for (const url of candidateUrls) {
+      const response = await fetch(url, { cache: "no-store" }).catch(() => null);
+      if (response?.ok) {
+        upstream = response;
+        break;
+      }
+    }
+
+    if (!upstream) {
+      return NextResponse.json({ error: "Resource is temporarily unavailable." }, { status: 502 });
     }
 
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
@@ -84,11 +102,13 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       contentTypeExtensions[contentTypeKey(contentType)] ||
       "file";
     const filename = `${cleanName}.${extension}`;
+    const fileBuffer = await upstream.arrayBuffer();
 
-    return new NextResponse(upstream.body, {
+    return new NextResponse(fileBuffer, {
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": "application/octet-stream",
         "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        "Content-Length": String(fileBuffer.byteLength),
         "Cache-Control": "private, max-age=300"
       }
     });
