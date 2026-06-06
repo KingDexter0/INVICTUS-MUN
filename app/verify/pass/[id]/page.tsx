@@ -27,7 +27,12 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
     return null;
   });
 
-  const isValid = Boolean(registration && registration.allotmentStatus === "Allotted");
+  const isDelegation = registration?.registrationType === "delegation";
+  const isValid = Boolean(
+    registration &&
+    (registration.allotmentStatus === "Allotted" ||
+      (isDelegation && registration.registrationStatus === "Approved"))
+  );
 
   return (
     <>
@@ -35,10 +40,12 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
       <main>
         <section className="subpage-hero cinematic-subpage verify-hero">
           <p className="eyebrow">QR VERIFICATION</p>
-          <h1>{isValid ? "Valid delegate pass." : "Invalid or inactive pass."}</h1>
+          <h1>{isValid ? (isDelegation ? "Valid delegation pass." : "Valid delegate pass.") : "Invalid or inactive pass."}</h1>
           <p>
             {isValid
-              ? "This pass belongs to an allotted delegate. Event staff can check the delegate in below."
+              ? (isDelegation 
+                  ? "This pass belongs to an approved delegation group. Event staff can check the group in below." 
+                  : "This pass belongs to an allotted delegate. Event staff can check the delegate in below.")
               : "This pass cannot be used for check-in. It may be missing, pending approval, or not allotted yet."}
           </p>
         </section>
@@ -62,10 +69,19 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
               <>
                 <dl>
                   {[
-                    ["Delegate name", registration.name],
+                    [isDelegation ? "Delegation name" : "Delegate name", registration.name],
+                    ["Registration Type", registration.registrationType === "delegation" ? "Delegation Group" : "Individual"],
                     ["Delegate ID", registration.publicId],
-                    ["Committee", registration.allottedCommittee || "Not released"],
-                    ["Portfolio", registration.allottedPortfolio || "Not released"],
+                    ...(isDelegation
+                      ? [
+                          ["Total Delegates", registration.totalDelegates?.toString() || "10+"],
+                          ["Coordinating Teacher", registration.coTeacherName || "Not provided"]
+                        ]
+                      : [
+                          ["Committee", registration.allottedCommittee || "Not released"],
+                          ["Portfolio", registration.allottedPortfolio || "Not released"]
+                        ]
+                    ),
                     ["Payment status", registration.paymentStatus],
                     ["Registration status", registration.registrationStatus],
                     ["Allotment status", registration.allotmentStatus],
@@ -81,11 +97,11 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
                     initialCheckedIn={registration.checkedIn}
                     initialCheckedInAt={registration.checkedInAt?.toISOString() || null}
                     delegateName={registration.name}
-                    delegateCommittee={registration.allottedCommittee || registration.committee1 || "Not assigned"}
+                    delegateCommittee={isDelegation ? "Delegation Group" : (registration.allottedCommittee || registration.committee1 || "Not assigned")}
                     delegateInstitution={registration.institution || "Independent delegate"}
                   />
                 ) : (
-                  <p className="form-message error">Check-in is locked until allotment is released.</p>
+                  <p className="form-message error">Check-in is locked until allotment is released or registration is approved.</p>
                 )}
               </>
             ) : (

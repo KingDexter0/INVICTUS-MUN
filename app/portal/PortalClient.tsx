@@ -1657,7 +1657,7 @@ export function PortalClient() {
                   </span>
                 </span>
               </div>
-              {active.registrationType !== "delegation" && (
+              {(active.allotmentStatus === "Allotted" || (active.registrationType === "delegation" && active.registrationStatus === "Approved")) && (
                 <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
               )}
             </div>

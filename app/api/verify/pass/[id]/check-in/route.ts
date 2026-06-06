@@ -43,8 +43,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       );
     }
 
-    if (registration.allotmentStatus !== "Allotted") {
-      const message = "This pass is not valid for check-in because allotment has not been released.";
+    if (registration.allotmentStatus !== "Allotted" && !(registration.registrationType === "delegation" && registration.registrationStatus === "Approved")) {
+      const message = "This pass is not valid for check-in because allotment has not been released or registration is not approved.";
       return NextResponse.json(
         {
           success: false,

@@ -105,13 +105,15 @@ export function DashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const hasAllotment = registration?.allotmentStatus === "Allotted";
+  const isDelegation = registration?.type === "delegation";
+  const hasAllotment = registration?.allotmentStatus === "Allotted" ||
+    (isDelegation && registration?.registrationStatus === "Approved");
   const canPayOnline = registration && registration.paymentStatus !== "Verified";
   const timelineSteps = registration ? [
     { label: "Registered", active: Boolean(registration.publicId), detail: registration.publicId },
     { label: "Payment", active: registration.paymentStatus === "Verified", detail: registration.paymentStatus },
     { label: "Approved", active: registration.registrationStatus === "Approved", detail: registration.registrationStatus },
-    { label: "Allotted", active: hasAllotment, detail: registration.allotmentStatus },
+    { label: isDelegation ? "Group Ready" : "Allotted", active: hasAllotment, detail: isDelegation ? (registration.registrationStatus === "Approved" ? "Approved" : "Pending") : registration.allotmentStatus },
     { label: "QR Ready", active: hasAllotment, detail: hasAllotment ? "Ready" : "Locked" }
   ] : [];
   const visibleResources = resources.filter((resource) => {
@@ -182,7 +184,13 @@ export function DashboardClient() {
             <article className="dashboard-card">
               <h2>Final Allotment</h2>
               <div className="allotment-card">
-                {hasAllotment ? (
+                {isDelegation ? (
+                  registration.registrationStatus === "Approved" ? (
+                    <><strong>Delegation Approved</strong><span>Check your registered emails for individual committee assignments.</span></>
+                  ) : (
+                    <><strong>Pending Approval</strong><span>Allotments will be released once delegation is approved.</span></>
+                  )
+                ) : hasAllotment ? (
                   <><strong>{registration.allottedCommittee}</strong><span>{registration.allottedPortfolio}</span><small>Released after admin approval.</small></>
                 ) : (
                   <><strong>Not released yet</strong><span>Your allotment appears here after approval.</span></>
@@ -197,7 +205,7 @@ export function DashboardClient() {
                     <div className="qr-link">
                       <img className="qr-code-image" src={`/api/qr/${registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
                       <strong>{registration.name}</strong>
-                      <span>{registration.allottedCommittee} - {registration.allottedPortfolio}</span>
+                      <span>{isDelegation ? "Delegation Group Pass" : `${registration.allottedCommittee} - ${registration.allottedPortfolio}`}</span>
                       <small style={{ color: "var(--muted)" }}>/verify/pass/{registration.publicId}</small>
                     </div>
                   </>
