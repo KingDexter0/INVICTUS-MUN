@@ -299,8 +299,23 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Registration failed:", error);
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const targets = Array.isArray(error.meta?.target) ? error.meta.target : [String(error.meta?.target || "")];
+      const targetStr = targets.join(",").toLowerCase();
+      
+      if (targetStr.includes("email")) {
+        return NextResponse.json(
+          { error: "This email address is already registered. You can check your registration status on the dashboard." },
+          { status: 409 }
+        );
+      }
+      if (targetStr.includes("delegationname")) {
+        return NextResponse.json(
+          { error: "This delegation name is already registered. Please choose a different name." },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
-        { error: "A registration ID conflict occurred. Please submit the form again." },
+        { error: "A registration conflict occurred (duplicate entry). Please try again or check status." },
         { status: 409 }
       );
     }
