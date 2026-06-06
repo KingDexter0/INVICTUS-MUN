@@ -11,6 +11,7 @@ type Note = {
 };
 
 type Registration = {
+  id: string;
   publicId: string;
   name: string;
   email: string;
@@ -27,6 +28,8 @@ type Registration = {
   allotmentStatus: string;
   allottedCommittee?: string | null;
   allottedPortfolio?: string | null;
+  checkedIn: boolean;
+  checkedInAt?: string | null;
   notes?: Note[];
 };
 
@@ -174,6 +177,16 @@ export function PortalClient() {
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
   const [isCreatingAdminUser, setIsCreatingAdminUser] = useState(false);
   const [isSavingOps, setIsSavingOps] = useState(false);
+  const [adminCertificates, setAdminCertificates] = useState<any[]>([]);
+  const [isGeneratingCerts, setIsGeneratingCerts] = useState(false);
+  const [certGenResult, setCertGenResult] = useState<{
+    totalCheckedIn: number;
+    eligible: number;
+    created: number;
+    skippedExisting: number;
+    ineligible: number;
+    errors: string[];
+  } | null>(null);
   const [deletingResourceId, setDeletingResourceId] = useState("");
   const [deletingEbId, setDeletingEbId] = useState("");
   const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
@@ -210,6 +223,7 @@ export function PortalClient() {
       await loadTestimonials();
       await loadAdminUsers();
       await loadAnalytics();
+      await loadAdminCertificates();
     } catch {
       setMessage("Could not reach the admin account server.");
       setMessageType("error");
@@ -357,6 +371,77 @@ export function PortalClient() {
     }
   }
 
+  async function loadAdminCertificates() {
+    try {
+      const response = await fetch("/api/certificates");
+      const payload = await response.json();
+      if (response.ok) {
+        setAdminCertificates(payload.certificates || []);
+      }
+    } catch {
+      setAdminCertificates([]);
+    }
+  }
+
+  async function generateParticipationCerts() {
+    setIsGeneratingCerts(true);
+    setMessage("");
+    setMessageType("");
+    setCertGenResult(null);
+    try {
+      const response = await fetch("/api/admin/certificates/participation/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not generate certificates.");
+        setMessageType("error");
+        return;
+      }
+      setCertGenResult(payload);
+      setMessage("Participation certificates processed successfully.");
+      setMessageType("success");
+      await loadAnalytics();
+      await loadAdminCertificates();
+      await loadRegistrations();
+    } catch {
+      setMessage("Could not reach the certificate generation server.");
+      setMessageType("error");
+    } finally {
+      setIsGeneratingCerts(false);
+    }
+  }
+
+  async function issueParticipationCertForDelegate(publicId: string) {
+    setIsSavingOps(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/certificates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId, title: "Certificate of Participation" })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not issue participation certificate.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(`Participation certificate issued: ${payload.certificate.certificateNo}.`);
+      setMessageType("success");
+      await loadAnalytics();
+      await loadAdminCertificates();
+      await loadRegistrations();
+    } catch {
+      setMessage("Could not connect to certificate server.");
+      setMessageType("error");
+    } finally {
+      setIsSavingOps(false);
+    }
+  }
+
   useEffect(() => {
     if (isUnlocked) {
       void loadRegistrations();
@@ -365,6 +450,7 @@ export function PortalClient() {
       void loadTestimonials();
       void loadAdminUsers();
       void loadAnalytics();
+      void loadAdminCertificates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, isUnlocked]);
@@ -775,6 +861,7 @@ export function PortalClient() {
       setMessage(`Certificate issued: ${payload.certificate.certificateNo}.`);
       setMessageType("success");
       await loadAnalytics();
+      await loadAdminCertificates();
     } finally {
       setIsSavingOps(false);
     }
@@ -923,10 +1010,10 @@ export function PortalClient() {
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th></th></tr></thead>
+                  <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Certificate</th><th></th></tr></thead>
                   <tbody>
                     {isLoading ? (
-                      <tr><td colSpan={7}><div className="empty-state">Loading registrations...</div></td></tr>
+                      <tr><td colSpan={8}><div className="empty-state">Loading registrations...</div></td></tr>
                     ) : visible.length ? visible.map((registration, index) => (
                       <tr key={registration.publicId}>
                         <td><div className="delegate"><span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span><span><strong>{registration.name}</strong><small>{registration.institution || registration.email}</small></span></div></td>
@@ -935,9 +1022,21 @@ export function PortalClient() {
                         <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
                         <td><span className={`status ${statusClass(registration.registrationStatus)}`}>{registration.registrationStatus}</span></td>
                         <td><span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span></td>
+                        <td>
+                          {(() => {
+                            const hasCert = adminCertificates.some(
+                              (c) => c.registrationId === registration.id && c.title === "Certificate of Participation"
+                            );
+                            return (
+                              <span className={`status ${hasCert ? "verified" : "pending"}`}>
+                                {hasCert ? "Issued" : "Not issued"}
+                              </span>
+                            );
+                          })()}
+                        </td>
                         <td><button className="row-action" onClick={() => openRegistration(registration)}>Review</button></td>
                       </tr>
-                    )) : <tr><td colSpan={7}><div className="empty-state">{registrations.length ? "No registrations match this view. Clear filters or search again." : "No registrations yet. New delegate submissions will appear here."}</div></td></tr>}
+                    )) : <tr><td colSpan={8}><div className="empty-state">{registrations.length ? "No registrations match this view. Clear filters or search again." : "No registrations yet. New delegate submissions will appear here."}</div></td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -1121,6 +1220,40 @@ export function PortalClient() {
                 <article className="stat-card"><p>Certificates</p><h3>{analytics?.certificates ?? "-"}</h3></article>
                 <article className="stat-card"><p>Awards</p><h3>{analytics?.awards ?? "-"}</h3></article>
               </div>
+              <div className="resource-manager" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "20px", marginBottom: "20px" }}>
+                <h3>Bulk Participation Certificates</h3>
+                <p style={{ fontSize: "0.9em", color: "var(--text-muted)", marginBottom: "15px" }}>
+                  Generate Certificates of Participation for all delegates who have checked in, paid, and have allotments.
+                </p>
+                <button 
+                  className="button primary" 
+                  type="button" 
+                  disabled={isGeneratingCerts}
+                  onClick={generateParticipationCerts}
+                >
+                  {isGeneratingCerts ? "Generating..." : "Generate Participation Certificates"}
+                </button>
+                {certGenResult && (
+                  <div className="cert-summary-box" style={{ marginTop: "15px", padding: "12px", background: "var(--bg-accent)", borderRadius: "6px", fontSize: "0.9em" }}>
+                    <h4 style={{ fontWeight: "bold", marginBottom: "6px" }}>Generation Summary</h4>
+                    <ul style={{ listStyle: "disc", paddingLeft: "20px" }}>
+                      <li>Total Checked-in: {certGenResult.totalCheckedIn}</li>
+                      <li>Eligible: {certGenResult.eligible}</li>
+                      <li>Created: {certGenResult.created}</li>
+                      <li>Skipped (Already Issued): {certGenResult.skippedExisting}</li>
+                      <li>Ineligible: {certGenResult.ineligible}</li>
+                    </ul>
+                    {certGenResult.errors && certGenResult.errors.length > 0 && (
+                      <div style={{ marginTop: "8px", color: "var(--text-danger)" }}>
+                        <strong>Errors:</strong>
+                        <ul style={{ listStyle: "circle", paddingLeft: "20px" }}>
+                          {certGenResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <form className="resource-manager" onSubmit={saveCertificate}>
                 <h3>Issue certificate</h3>
                 <input name="publicId" placeholder="Delegate ID, e.g. INV-2026-001" required />
@@ -1156,6 +1289,20 @@ export function PortalClient() {
               <div><strong>Institution</strong><span>{active.institution || "-"}</span></div>
               <div><strong>Preference 1</strong><span>{active.committee1} / {active.portfolio1 || "No portfolio"}</span></div>
               <div><strong>Payment method</strong><span>{active.paymentProofUrl ? <a href={active.paymentProofUrl} target="_blank" rel="noopener noreferrer">Open legacy proof</a> : "Razorpay online payment"}</span></div>
+              <div><strong>Check-in Status</strong><span>{active.checkedIn ? `Checked In (${active.checkedInAt ? new Date(active.checkedInAt).toLocaleDateString() : ""})` : "Not checked in"}</span></div>
+              <div>
+                <strong>Certificate</strong>
+                {(() => {
+                  const hasCert = adminCertificates.some(
+                    (c) => c.registrationId === active.id && c.title === "Certificate of Participation"
+                  );
+                  return (
+                    <span className={`status ${hasCert ? "verified" : "pending"}`}>
+                      {hasCert ? "Issued" : "Not issued"}
+                    </span>
+                  );
+                })()}
+              </div>
               <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
             </div>
             <div className="allotment-editor">
@@ -1166,6 +1313,24 @@ export function PortalClient() {
             </div>
             <div className="dialog-actions action-wrap">
               <button className="button secondary" onClick={() => setActive(null)}>Close</button>
+              {(() => {
+                const hasCert = adminCertificates.some(
+                  (c) => c.registrationId === active.id && c.title === "Certificate of Participation"
+                );
+                const isEligible = active.checkedIn && active.registrationStatus === "Approved" && active.paymentStatus === "Verified" && active.allotmentStatus === "Allotted";
+                if (!hasCert && isEligible) {
+                  return (
+                    <button 
+                      className="button primary" 
+                      disabled={isSavingOps}
+                      onClick={() => issueParticipationCertForDelegate(active.publicId)}
+                    >
+                      {isSavingOps ? "Issuing..." : "Issue Participation Certificate"}
+                    </button>
+                  );
+                }
+                return null;
+              })()}
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment rejection", { paymentStatus: "Rejected", registrationStatus: "Action Needed" })}>{activeAction === "Payment rejection" ? "Saving..." : "Reject payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment verification", { paymentStatus: "Verified" })}>{activeAction === "Payment verification" ? "Saving..." : "Verify payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Registration approval", { paymentStatus: "Verified", registrationStatus: "Approved" })}>{activeAction === "Registration approval" ? "Saving..." : "Approve"}</button>

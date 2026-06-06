@@ -141,12 +141,52 @@ export default async function DelegateDashboardPage() {
             <article className="dashboard-card">
               <h2>Certificates</h2>
               <div className="resource-list compact">
-                {certificates.length ? certificates.map((certificate) => (
-                  <a key={certificate.id} href={`/certificates/${certificate.certificateNo}`}>
-                    <strong>{certificate.title}</strong>
-                    <span>{certificate.certificateNo}</span>
-                  </a>
-                )) : <p className="empty-copy">No certificates issued yet.</p>}
+                {(() => {
+                  const participationCert = certificates.find((c) => c.title === "Certificate of Participation");
+                  const otherCerts = certificates.filter((c) => c.title !== "Certificate of Participation");
+
+                  return (
+                    <>
+                      {participationCert ? (
+                        <div className="certificate-item-card" style={{ marginBottom: "15px" }}>
+                          <strong>Certificate of Participation</strong>
+                          <span className="cert-code" style={{ display: "block", fontSize: "0.85em", color: "var(--text-muted)", margin: "4px 0 12px" }}>
+                            {participationCert.certificateNo}
+                          </span>
+                          <div className="cert-actions-row" style={{ display: "flex", gap: "8px" }}>
+                            <Link href={`/certificates/${participationCert.certificateNo}`} className="button secondary" style={{ fontSize: "0.85em", padding: "6px 12px" }}>
+                              View Certificate
+                            </Link>
+                            <a href={`/api/certificates/${participationCert.certificateNo}/download`} className="button primary" style={{ fontSize: "0.85em", padding: "6px 12px" }} target="_blank" rel="noopener noreferrer">
+                              Download PDF
+                            </a>
+                          </div>
+                        </div>
+                      ) : registration.checkedIn ? (
+                        <p className="empty-copy">Certificate will be available after admin issuance.</p>
+                      ) : (
+                        <p className="empty-copy">Participation certificate unlocks after event check-in.</p>
+                      )}
+
+                      {otherCerts.length > 0 && (
+                        <div className="other-certs-section" style={{ marginTop: "15px", paddingTop: "15px", borderTop: "1px solid var(--border)" }}>
+                          <h3 style={{ fontSize: "1em", marginBottom: "10px" }}>Other Certificates</h3>
+                          {otherCerts.map((certificate) => (
+                            <div key={certificate.id} className="certificate-item-card" style={{ marginBottom: "10px" }}>
+                              <strong>{certificate.title}</strong>
+                              <span className="cert-code" style={{ display: "block", fontSize: "0.85em", color: "var(--text-muted)", margin: "4px 0 8px" }}>
+                                {certificate.certificateNo}
+                              </span>
+                              <Link href={`/certificates/${certificate.certificateNo}`} className="button secondary" style={{ fontSize: "0.85em", padding: "6px 12px", display: "inline-block" }}>
+                                View Certificate
+                              </Link>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </article>
             <article className="dashboard-card">

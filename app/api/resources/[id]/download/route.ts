@@ -67,15 +67,26 @@ function cloudinaryRawCandidate(fileUrl: string) {
   return fileUrl.replace("/image/upload/", "/raw/upload/");
 }
 
+function withoutExtensionCandidate(fileUrl: string) {
+  try {
+    const url = new URL(fileUrl);
+    url.pathname = url.pathname.replace(/\.[a-z0-9]{2,5}$/i, "");
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
 function downloadCandidates(fileUrl: string) {
   const rawCandidate = cloudinaryRawCandidate(fileUrl);
+  const rawWithoutExtension = rawCandidate ? withoutExtensionCandidate(rawCandidate) : "";
+  const originalWithoutExtension = withoutExtensionCandidate(fileUrl);
   const looksLikePdf = extensionFromUrl(fileUrl) === "pdf";
+  const candidates = looksLikePdf
+    ? [rawCandidate, rawWithoutExtension, fileUrl, originalWithoutExtension]
+    : [fileUrl, rawCandidate, rawWithoutExtension, originalWithoutExtension];
 
-  if (rawCandidate && looksLikePdf) {
-    return [rawCandidate, fileUrl];
-  }
-
-  return [fileUrl, rawCandidate].filter(Boolean);
+  return Array.from(new Set(candidates.filter(Boolean)));
 }
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {

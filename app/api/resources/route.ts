@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../lib/admin";
-import { uploadResourceFile } from "../../../lib/cloudinary";
+import { uploadResourceImageFile } from "../../../lib/cloudinary";
 import { sendResourceEmail } from "../../../lib/email";
 import { prisma } from "../../../lib/prisma";
 
@@ -60,9 +60,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Upload a resource file." }, { status: 400 });
     }
 
-    const upload = await uploadResourceFile(file);
-    if (!upload) {
-      return NextResponse.json({ error: "Resource file could not be uploaded." }, { status: 500 });
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+
+    const isImage =
+      file.type === "image/jpeg" ||
+      file.type === "image/png" ||
+      file.type === "image/webp";
+
+    if (!isPdf && !isImage) {
+      return NextResponse.json(
+        { error: "Only PDF, JPG, PNG, and WEBP files are supported." },
+        { status: 400 }
+      );
+    }
+
+    let fileUrl: string;
+    let filePublicId: string;
+
+    if (isPdf) {
+      // Upload PDF to Vercel Blob — avoids Cloudinary PDF delivery failures
+      const { put } = await import("@vercel/blob");
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const blob = await put(`resources/${Date.now()}-${safeName}`, file, {
+        access: "public",
+        contentType: file.type || "application/pdf"
+      });
+      fileUrl = blob.url;
+      filePublicId = blob.pathname;
+    } else {
+      // Upload image to Cloudinary — existing proven path, untouched
+      const upload = await uploadResourceImageFile(file);
+      if (!upload) {
+        return NextResponse.json({ error: "Resource file could not be uploaded." }, { status: 500 });
+      }
+      fileUrl = upload.secure_url;
+      filePublicId = upload.public_id;
     }
 
     const resource = await prisma.resource.create({
@@ -71,8 +105,8 @@ export async function POST(request: Request) {
         description: description || null,
         category,
         accessLevel,
-        fileUrl: upload.secure_url,
-        filePublicId: upload.public_id
+        fileUrl,
+        filePublicId
       }
     });
 

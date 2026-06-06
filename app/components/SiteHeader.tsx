@@ -24,7 +24,7 @@ export function SiteHeader({ cta = "DELEGATE LOGIN", ctaHref = "/delegate/login"
         <Link href="/executive-board">EXECUTIVE BOARD</Link>
         <Link href="/registration">REGISTRATION</Link>
         <Link href="/resources">RESOURCES</Link>
-        <Link href="/#contact">CONTACT</Link>
+        <Link href="/contact">CONTACT</Link>
       </nav>
       <Link className="nav-cta" href={ctaHref}>
         {cta}
@@ -54,7 +54,7 @@ export function SiteFooter() {
         <Link href="/resources">Resources</Link>
         <Link href="/delegate/login">Delegate Login</Link>
         <Link href="/#policies">Policies</Link>
-        <Link href="/#contact">Contact</Link>
+        <Link href="/contact">Contact</Link>
       </nav>
       <p className="footer-copy">© 2026 Invictus Model United Nations</p>
     </footer>

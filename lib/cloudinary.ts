@@ -11,6 +11,10 @@ type UploadResult = {
   public_id: string;
 };
 
+function normalizeRawResourceUrl(url: string) {
+  return url.replace("/image/upload/", "/raw/upload/");
+}
+
 export async function uploadPaymentProof(file: File | null): Promise<UploadResult | null> {
   if (!file || file.size === 0) {
     return null;
@@ -69,7 +73,7 @@ export async function uploadResourceFile(file: File | null): Promise<UploadResul
           return;
         }
 
-        resolve({ secure_url: result.secure_url, public_id: result.public_id });
+        resolve({ secure_url: normalizeRawResourceUrl(result.secure_url), public_id: result.public_id });
       }
     );
 
@@ -84,6 +88,45 @@ function cleanUploadFilename(value: string) {
     .replace(/\s+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 120) || "invictus-resource";
+}
+
+/**
+ * Upload an image resource (JPEG/PNG/WEBP) to Cloudinary using resource_type image.
+ * Used by the resource upload API when the file is detected as an image.
+ */
+export async function uploadResourceImageFile(file: File | null): Promise<UploadResult | null> {
+  if (!file || file.size === 0) {
+    return null;
+  }
+
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    throw new Error("Cloudinary is not configured.");
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const originalName = cleanUploadFilename(file.name || "invictus-resource");
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "invictus-mun/resources",
+        resource_type: "image",
+        use_filename: true,
+        unique_filename: true,
+        filename_override: originalName
+      },
+      (error, result) => {
+        if (error || !result) {
+          reject(error ?? new Error("Cloudinary upload failed."));
+          return;
+        }
+
+        resolve({ secure_url: result.secure_url, public_id: result.public_id });
+      }
+    );
+
+    stream.end(bytes);
+  });
 }
 
 export async function uploadEbPhoto(file: File | null): Promise<UploadResult | null> {

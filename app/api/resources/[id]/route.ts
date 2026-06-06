@@ -5,6 +5,15 @@ import { prisma } from "../../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+function isVercelBlobUrl(url: string) {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.endsWith("vercel-storage.com") || hostname.endsWith("public.blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+}
+
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   try {
     assertAdmin();
@@ -21,9 +30,18 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
       where: { id: params.id }
     });
 
-    await deleteCloudinaryFile(resource.filePublicId).catch((error) => {
-      console.error("Could not delete Cloudinary resource", error);
-    });
+    if (isVercelBlobUrl(resource.fileUrl)) {
+      // Delete from Vercel Blob storage
+      const { del } = await import("@vercel/blob");
+      await del(resource.fileUrl).catch((error: unknown) => {
+        console.error("Could not delete Vercel Blob resource", error);
+      });
+    } else {
+      // Delete from Cloudinary
+      await deleteCloudinaryFile(resource.filePublicId).catch((error: unknown) => {
+        console.error("Could not delete Cloudinary resource", error);
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

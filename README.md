@@ -75,6 +75,13 @@ Razorpay requires `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `NEXT_PUBLIC_RAZ
 
 WhatsApp automation uses Meta WhatsApp Cloud API. Set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, and an approved `WHATSAPP_TEMPLATE_NAME`. If these are missing, WhatsApp sends are safely skipped/logged.
 
+## Storage: Cloudinary vs Vercel Blob
+
+PDF resource uploads use **Vercel Blob** (`BLOB_READ_WRITE_TOKEN`).
+Image resources (JPEG/PNG/WEBP) and payment screenshots use **Cloudinary**.
+The split avoids Cloudinary's PDF delivery failures. Old Cloudinary PDF records have a raw-URL fallback in the download route.
+
+
 ## First Admin Setup
 
 Set `ADMIN_SETUP_TOKEN` in production. If no admin users exist yet, `/mun-ops` shows a **First Admin Setup** form. After the first admin account is created, only admin email/password login is shown.
