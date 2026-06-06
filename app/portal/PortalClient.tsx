@@ -86,6 +86,14 @@ type AdminUser = {
   updatedAt: string;
 };
 
+type Announcement = {
+  id: string;
+  title: string;
+  audience: string;
+  message: string;
+  createdAt: string;
+};
+
 type AnalyticsSummary = {
   registrations: number;
   verifiedPayments: number;
@@ -159,6 +167,8 @@ export function PortalClient() {
   const [ebProfiles, setEbProfiles] = useState<EBProfile[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState("");
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -228,6 +238,7 @@ export function PortalClient() {
       await loadAdminUsers();
       await loadAnalytics();
       await loadAdminCertificates();
+      await loadAnnouncements();
     } catch {
       setMessage("Could not reach the admin account server.");
       setMessageType("error");
@@ -278,6 +289,41 @@ export function PortalClient() {
       .then((payload) => setNeedsAdminSetup(Boolean(payload.needsSetup)))
       .catch(() => setNeedsAdminSetup(false));
   }, []);
+
+  async function loadAnnouncements() {
+    try {
+      const response = await fetch("/api/announcements");
+      const payload = await response.json();
+      if (response.ok) {
+        setAnnouncements(payload.announcements || []);
+      }
+    } catch {
+      setAnnouncements([]);
+    }
+  }
+
+  async function deleteAnnouncement(announcementId: string) {
+    setDeletingAnnouncementId(announcementId);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(`/api/announcements/${announcementId}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not delete announcement.");
+        setMessageType("error");
+        return;
+      }
+      setMessage("Announcement deleted.");
+      setMessageType("success");
+      await loadAnnouncements();
+    } catch {
+      setMessage("Could not connect to announcement server.");
+      setMessageType("error");
+    } finally {
+      setDeletingAnnouncementId("");
+    }
+  }
 
   async function loadResources() {
     try {
@@ -455,6 +501,7 @@ export function PortalClient() {
       void loadAdminUsers();
       void loadAnalytics();
       void loadAdminCertificates();
+      void loadAnnouncements();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, isUnlocked]);
@@ -561,6 +608,7 @@ export function PortalClient() {
       setAnnouncement({ title: "", audience: "All registered delegates", message: "" });
       setMessage("Announcement published.");
       setMessageType("success");
+      await loadAnnouncements();
     } catch {
       setMessage("Could not reach the announcement server.");
       setMessageType("error");
@@ -963,6 +1011,7 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("payments")}><span className="nav-icon">P</span> Payments <b>{stats.needsPayment}</b></button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("allotments")}><span className="nav-icon">A</span> Allotments <b>{stats.needsAllotment}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#resources")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">D</span> Resources <b>{resources.length}</b></button>
+          <button className="nav-item" type="button" onClick={() => document.querySelector("#announcements")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">N</span> Announcements <b>{announcements.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#eb-management")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">E</span> EB <b>{ebProfiles.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#testimonials")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">T</span> Testimonials <b>{testimonials.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#admin-users")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">U</span> Admin Users <b>{adminUsers.length}</b></button>
@@ -1142,6 +1191,70 @@ export function PortalClient() {
                     </button>
                   </article>
                 )) : <div className="empty-state">No resources uploaded yet.</div>}
+              </div>
+            </section>
+
+            <section className="panel resources-panel" id="announcements">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">BROADCASTS</p>
+                  <h2>Announcements</h2>
+                </div>
+                <span className="count-badge">{announcements.length}</span>
+              </div>
+              <form className="resource-manager" onSubmit={publishAnnouncement}>
+                <input
+                  value={announcement.title}
+                  onChange={(event) => setAnnouncement({ ...announcement, title: event.target.value })}
+                  placeholder="Announcement title"
+                  required
+                />
+                <textarea
+                  value={announcement.message}
+                  onChange={(event) => setAnnouncement({ ...announcement, message: event.target.value })}
+                  placeholder="Announcement message (supports markdown or plain text)"
+                  required
+                />
+                <div className="resource-fields">
+                  <select
+                    value={announcement.audience}
+                    onChange={(event) => setAnnouncement({ ...announcement, audience: event.target.value })}
+                    required
+                  >
+                    <option value="All registered delegates">All registered delegates</option>
+                    {Object.keys(capacities).map((committeeName) => (
+                      <option key={committeeName} value={committeeName}>{committeeName}</option>
+                    ))}
+                  </select>
+                </div>
+                <button className="button secondary full" type="submit" disabled={isPublishing}>
+                  {isPublishing ? "Publishing..." : "Publish announcement"}
+                </button>
+              </form>
+              <div className="resource-admin-list">
+                {announcements.length ? (
+                  announcements.map((ann) => (
+                    <article className="resource-admin-item" key={ann.id}>
+                      <div>
+                        <strong>{ann.title}</strong>
+                        <small>{ann.audience} - {new Date(ann.createdAt).toLocaleString()}</small>
+                        <p style={{ marginTop: "5px", color: "var(--text-muted)", fontSize: "0.9em", whiteSpace: "pre-wrap" }}>
+                          {ann.message}
+                        </p>
+                      </div>
+                      <button
+                        className="row-action"
+                        type="button"
+                        disabled={deletingAnnouncementId === ann.id}
+                        onClick={() => deleteAnnouncement(ann.id)}
+                      >
+                        {deletingAnnouncementId === ann.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <div className="empty-state">No announcements published yet.</div>
+                )}
               </div>
             </section>
           </div>
