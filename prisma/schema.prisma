@@ -235,3 +235,282 @@ model CheckInOtp {
   @@index([delegateId])
 }
 
+model IndividualRegistration {
+  id                    String                         @id @default(cuid())
+  publicId              String                         @unique
+  name                  String
+  email                 String                         @unique
+  phone                 String
+  age                   Int?
+  dob                   String?
+  gender                String?
+  institution           String?
+  gradeYear             String?
+  committee1            String
+  portfolio1            String?
+  committee2            String?
+  portfolio2            String?
+  city                  String?
+  isPartOfDelegation    Boolean                        @default(false)
+  delegationName        String?
+  originalDelegationName String?
+  refPerson             String?
+  muns                  Int?
+  awards                Int?
+  experience            String?
+  utr                   String?
+  amount                Int                            @default(2100)
+  paymentProofUrl       String?
+  paymentProofPublicId  String?
+  accommodation         String?
+  transport             String?
+  arrivalCity           String?
+  requirements          String?
+  paymentStatus         String                         @default("Pending")
+  registrationStatus    String                         @default("Pending")
+  allotmentStatus       String                         @default("Not allotted")
+  allottedCommittee     String?
+  allottedPortfolio     String?
+  checkedIn             Boolean                        @default(false)
+  checkedInAt           DateTime?
+  checkedInBy           String?
+  certificateReleased   Boolean                        @default(false)
+  certificateReleasedAt DateTime?
+  certificateUrl        String?
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  registrationType      String                         @default("individual")
+  accommodationRequired Boolean                        @default(false)
+  paymentScreenshotUrl  String?
+  paymentScreenshotPublicId String?
+  totalAmountPaid        Int                            @default(0)
+
+  notes                 IndividualAdminNote[]
+  paymentTransactions   IndividualPaymentTransaction[]
+  certificates          IndividualCertificate[]
+  awardRecords          IndividualAward[]
+  whatsappLogs          IndividualWhatsAppLog[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([paymentStatus])
+  @@index([registrationStatus])
+  @@index([allotmentStatus])
+}
+
+model DelegationRegistration {
+  id                    String                         @id @default(cuid())
+  publicId              String                         @unique
+  delegationName        String                         @unique
+  institution           String?
+  coTeacherName         String
+  coTeacherEmail        String                         @unique
+  coTeacherPhone        String
+  city                  String?
+  totalDelegates        Int                            @default(10)
+  amount                Int                            @default(20000)
+  paymentProofUrl       String?
+  paymentProofPublicId  String?
+  paymentStatus         String                         @default("Pending")
+  registrationStatus    String                         @default("Pending")
+  checkedInCount        Int                            @default(0)
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  registrationType      String                         @default("delegation")
+  accommodationRequired Boolean                        @default(false)
+  paymentScreenshotUrl  String?
+  paymentScreenshotPublicId String?
+  totalAmountPaid        Int                            @default(0)
+
+  delegates             DelegationDelegate[]
+  notes                 DelegationAdminNote[]
+  paymentTransactions   DelegationPaymentTransaction[]
+
+  @@index([coTeacherEmail])
+  @@index([delegationName])
+  @@index([paymentStatus])
+  @@index([registrationStatus])
+}
+
+model DelegationDelegate {
+  id                    String                         @id @default(cuid())
+  publicId              String                         @unique
+  delegationId          String
+  delegation            DelegationRegistration         @relation(fields: [delegationId], references: [id], onDelete: Cascade)
+  name                  String
+  email                 String?
+  phone                 String?
+  originalDelegationName String?
+  committee1            String?
+  portfolio1            String?
+  allotmentStatus       String                         @default("Not allotted")
+  allottedCommittee     String?
+  allottedPortfolio     String?
+  checkedIn             Boolean                        @default(false)
+  checkedInAt           DateTime?
+  checkedInBy           String?
+  certificateReleased   Boolean                        @default(false)
+  certificateReleasedAt DateTime?
+  certificateUrl        String?
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+
+  notes                 DelegateAdminNote[]
+  certificates          DelegateCertificate[]
+  awardRecords          DelegateAward[]
+  whatsappLogs          DelegateWhatsAppLog[]
+
+  @@index([delegationId])
+  @@index([email])
+}
+
+model IndividualAdminNote {
+  id             String                 @id @default(cuid())
+  registrationId String
+  note           String
+  createdAt      DateTime               @default(now())
+  registration   IndividualRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+}
+
+model DelegationAdminNote {
+  id             String                 @id @default(cuid())
+  registrationId String
+  note           String
+  createdAt      DateTime               @default(now())
+  registration   DelegationRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+}
+
+model DelegateAdminNote {
+  id             String             @id @default(cuid())
+  delegateId     String
+  note           String
+  createdAt      DateTime           @default(now())
+  delegate       DelegationDelegate @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+
+  @@index([delegateId])
+}
+
+model IndividualPaymentTransaction {
+  id             String                 @id @default(cuid())
+  registrationId String
+  provider       String                 @default("Razorpay")
+  orderId        String                 @unique
+  paymentId      String?
+  signature      String?
+  amount         Int
+  currency       String                 @default("INR")
+  status         String                 @default("Created")
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  registration   IndividualRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@index([status])
+}
+
+model DelegationPaymentTransaction {
+  id             String                 @id @default(cuid())
+  registrationId String
+  provider       String                 @default("Razorpay")
+  orderId        String                 @unique
+  paymentId      String?
+  signature      String?
+  amount         Int
+  currency       String                 @default("INR")
+  status         String                 @default("Created")
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  registration   DelegationRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@index([status])
+}
+
+model IndividualCertificate {
+  id             String                 @id @default(cuid())
+  registrationId String
+  title          String
+  certificateNo  String                 @unique
+  issuedAt       DateTime               @default(now())
+  createdAt      DateTime               @default(now())
+  registration   IndividualRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+}
+
+model DelegateCertificate {
+  id            String             @id @default(cuid())
+  delegateId    String
+  title         String
+  certificateNo String             @unique
+  issuedAt      DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+  delegate      DelegationDelegate @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+
+  @@index([delegateId])
+}
+
+model IndividualAward {
+  id             String                 @id @default(cuid())
+  registrationId String
+  title          String
+  category       String
+  committee      String?
+  position       String?
+  createdAt      DateTime               @default(now())
+  registration   IndividualRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@index([committee])
+}
+
+model DelegateAward {
+  id         String             @id @default(cuid())
+  delegateId String
+  title      String
+  category   String
+  committee  String?
+  position   String?
+  createdAt  DateTime           @default(now())
+  delegate   DelegationDelegate @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+
+  @@index([delegateId])
+  @@index([committee])
+}
+
+model IndividualWhatsAppLog {
+  id             String                 @id @default(cuid())
+  registrationId String?
+  phone          String
+  trigger        String
+  status         String
+  messageId      String?
+  error          String?
+  createdAt      DateTime               @default(now())
+  registration   IndividualRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@index([registrationId])
+  @@index([trigger])
+  @@index([status])
+}
+
+model DelegateWhatsAppLog {
+  id         String              @id @default(cuid())
+  delegateId String?
+  phone      String
+  trigger    String
+  status     String
+  messageId  String?
+  error      String?
+  createdAt  DateTime            @default(now())
+  delegate   DelegationDelegate? @relation(fields: [delegateId], references: [id], onDelete: SetNull)
+
+  @@index([delegateId])
+  @@index([trigger])
+  @@index([status])
+}
+

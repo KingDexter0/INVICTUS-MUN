@@ -56,6 +56,8 @@ type Registration = {
   coTeacherEmail?: string | null;
   totalDelegates?: number | null;
   delegateNames?: string | null;
+  checkedInCount?: number | null;
+  delegates?: any[];
 };
 
 type Resource = {
@@ -184,6 +186,8 @@ export function PortalClient() {
   const [adminPassword, setAdminPassword] = useState("");
   const [needsAdminSetup, setNeedsAdminSetup] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [delegationDelegates, setDelegationDelegates] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"individual" | "delegation" | "delegates" | "overview">("individual");
   const [resources, setResources] = useState<Resource[]>([]);
   const [ebProfiles, setEbProfiles] = useState<EBProfile[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -195,7 +199,7 @@ export function PortalClient() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedCommittee, setSelectedCommittee] = useState("");
-  const [active, setActive] = useState<Registration | null>(null);
+  const [active, setActive] = useState<any | null>(null);
   const [committee, setCommittee] = useState("");
   const [portfolio, setPortfolio] = useState("");
   const [note, setNote] = useState("");
@@ -227,6 +231,8 @@ export function PortalClient() {
   const [deletingEbId, setDeletingEbId] = useState("");
   const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
   const [announcement, setAnnouncement] = useState({ title: "", audience: "All registered delegates", message: "" });
+  const [importReport, setImportReport] = useState<any | null>(null);
+  const [showImportReport, setShowImportReport] = useState(false);
 
   async function triggerPollRefresh() {
     if (!isUnlocked) return;
@@ -247,22 +253,25 @@ export function PortalClient() {
   }
 
   function handleDelegateUpdated(data: { publicId: string; updatedFields: Partial<Registration>; registration: Registration }) {
-    setRegistrations(prev => prev.map(reg => reg.publicId === data.publicId ? { ...reg, ...data.updatedFields } : reg));
-    setActive(prev => prev && prev.publicId === data.publicId ? { ...prev, ...data.updatedFields } : prev);
+    setRegistrations((prev: Registration[]) => prev.map(reg => reg.publicId === data.publicId ? { ...reg, ...data.updatedFields } : reg));
+    setDelegationDelegates((prev: any[]) => prev.map(d => d.publicId === data.publicId ? { ...d, ...data.updatedFields } : d));
+    setActive((prev: any) => prev && prev.publicId === data.publicId ? { ...prev, ...data.updatedFields } : prev);
     void loadAnalytics();
     void loadAdminCertificates();
   }
 
   function handleDelegateCheckedIn(data: { publicId: string; checkedInAt: string; checkedInBy: string; registration: Registration }) {
-    setRegistrations(prev => prev.map(reg => reg.publicId === data.publicId ? { ...reg, checkedIn: true, checkedInAt: data.checkedInAt, checkedInBy: data.checkedInBy } : reg));
-    setActive(prev => prev && prev.publicId === data.publicId ? { ...prev, checkedIn: true, checkedInAt: data.checkedInAt, checkedInBy: data.checkedInBy } : prev);
+    setRegistrations((prev: Registration[]) => prev.map(reg => reg.publicId === data.publicId ? { ...reg, checkedIn: true, checkedInAt: data.checkedInAt, checkedInBy: data.checkedInBy } : reg));
+    setDelegationDelegates((prev: any[]) => prev.map(d => d.publicId === data.publicId ? { ...d, checkedIn: true, checkedInAt: data.checkedInAt, checkedInBy: data.checkedInBy } : d));
+    setActive((prev: any) => prev && prev.publicId === data.publicId ? { ...prev, checkedIn: true, checkedInAt: data.checkedInAt, checkedInBy: data.checkedInBy } : prev);
     void loadAnalytics();
     void loadAdminCertificates();
   }
 
   function handleCertificateUpdated(data: { publicId: string; certificateReleased: boolean; certificateUrl: string }) {
-    setRegistrations(prev => prev.map(reg => reg.publicId === data.publicId ? { ...reg, certificateReleased: data.certificateReleased, certificateUrl: data.certificateUrl } : reg));
-    setActive(prev => prev && prev.publicId === data.publicId ? { ...prev, certificateReleased: data.certificateReleased, certificateUrl: data.certificateUrl } : prev);
+    setRegistrations((prev: Registration[]) => prev.map(reg => reg.publicId === data.publicId ? { ...reg, certificateReleased: data.certificateReleased, certificateUrl: data.certificateUrl } : reg));
+    setDelegationDelegates((prev: any[]) => prev.map(d => d.publicId === data.publicId ? { ...d, certificateReleased: data.certificateReleased, certificateUrl: data.certificateUrl } : d));
+    setActive((prev: any) => prev && prev.publicId === data.publicId ? { ...prev, certificateReleased: data.certificateReleased, certificateUrl: data.certificateUrl } : prev);
     void loadAnalytics();
     void loadAdminCertificates();
   }
@@ -487,6 +496,15 @@ export function PortalClient() {
         return;
       }
       setRegistrations(payload.registrations || []);
+
+      // Load delegation delegates
+      const delParams = new URLSearchParams();
+      if (search) delParams.set("search", search);
+      const delRes = await fetch(`/api/admin/registrations/delegation-delegates?${delParams.toString()}`);
+      if (delRes.ok) {
+        const delPayload = await delRes.json();
+        setDelegationDelegates(delPayload.delegates || []);
+      }
     } catch {
       setMessage("Could not load registrations. Check the database connection and try again.");
       setMessageType("error");
@@ -542,7 +560,13 @@ export function PortalClient() {
     setMessage("");
     setMessageType("");
     try {
-      const response = await fetch("/api/certificates", {
+      let url = "/api/certificates";
+      if (publicId.includes("-d")) {
+        url = `/api/admin/registrations/delegation-delegates/${publicId}/certificate`;
+      } else {
+        url = `/api/admin/registrations/individual/${publicId}/certificate`;
+      }
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ publicId, title: "Certificate of Participation" })
@@ -553,7 +577,7 @@ export function PortalClient() {
         setMessageType("error");
         return;
       }
-      setMessage(`Participation certificate issued: ${payload.certificate.certificateNo}.`);
+      setMessage(`Participation certificate issued: ${payload.certificate?.certificateNo || "success"}.`);
       setMessageType("success");
       await loadAnalytics();
       await loadAdminCertificates();
@@ -580,6 +604,18 @@ export function PortalClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, isUnlocked]);
 
+  useEffect(() => {
+    fetch("/import-report.json")
+      .then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then((data) => {
+        if (data) setImportReport(data);
+      })
+      .catch((err) => console.error("Error loading import report:", err));
+  }, []);
+
   const stats = useMemo(() => {
     const verified = registrations.filter((item) => item.paymentStatus === "Verified");
     const approved = registrations.filter((item) => item.registrationStatus === "Approved");
@@ -596,23 +632,50 @@ export function PortalClient() {
     };
   }, [registrations]);
 
-  const visible = registrations.filter((registration) => {
-    const filterMatch =
-      activeFilter === "all" ||
-      (activeFilter === "pending" && needsReview(registration)) ||
-      (activeFilter === "payments" && registration.paymentStatus !== "Verified") ||
-      (activeFilter === "approved" && registration.registrationStatus === "Approved") ||
-      (activeFilter === "allotments" && registration.registrationStatus === "Approved" && registration.allotmentStatus !== "Allotted") ||
-      (activeFilter === "allotted" && registration.allotmentStatus === "Allotted");
-    const committeeMatch =
-      !selectedCommittee ||
-      registration.committee1 === selectedCommittee ||
-      registration.allottedCommittee === selectedCommittee;
-    const typeMatch =
-      regTypeFilter === "all" ||
-      registration.registrationType === regTypeFilter;
-    return filterMatch && committeeMatch && typeMatch;
-  });
+  const visibleIndividuals = useMemo(() => {
+    return registrations
+      .filter((r) => r.registrationType === "individual")
+      .filter((registration) => {
+        if (activeFilter === "all") return true;
+        if (activeFilter === "pending" && needsReview(registration)) return true;
+        if (activeFilter === "payments" && registration.paymentStatus !== "Verified") return true;
+        if (activeFilter === "approved" && registration.registrationStatus === "Approved") return true;
+        if (activeFilter === "allotments" && registration.registrationStatus === "Approved" && registration.allotmentStatus !== "Allotted") return true;
+        if (activeFilter === "allotted" && registration.allotmentStatus === "Allotted") return true;
+        return false;
+      })
+      .filter((registration) => {
+        if (!selectedCommittee) return true;
+        return registration.committee1 === selectedCommittee || registration.allottedCommittee === selectedCommittee;
+      });
+  }, [registrations, activeFilter, selectedCommittee]);
+
+  const visibleDelegations = useMemo(() => {
+    return registrations
+      .filter((r) => r.registrationType === "delegation")
+      .filter((registration) => {
+        if (activeFilter === "all") return true;
+        if (activeFilter === "pending" && needsReview(registration)) return true;
+        if (activeFilter === "payments" && registration.paymentStatus !== "Verified") return true;
+        if (activeFilter === "approved" && registration.registrationStatus === "Approved") return true;
+        return false;
+      });
+  }, [registrations, activeFilter]);
+
+  const visibleDelegates = useMemo(() => {
+    return delegationDelegates
+      .filter((registration) => {
+        if (activeFilter === "all") return true;
+        if (activeFilter === "pending" && !registration.checkedIn) return true;
+        if (activeFilter === "allotments" && registration.allotmentStatus !== "Allotted") return true;
+        if (activeFilter === "allotted" && registration.allotmentStatus === "Allotted") return true;
+        return false;
+      })
+      .filter((registration) => {
+        if (!selectedCommittee) return true;
+        return registration.committee1 === selectedCommittee || registration.allottedCommittee === selectedCommittee;
+      });
+  }, [delegationDelegates, activeFilter, selectedCommittee]);
 
   function jumpToRegistrations(filter: string, committeeName = "") {
     setActiveFilter(filter);
@@ -640,7 +703,15 @@ export function PortalClient() {
     setMessage("");
     setMessageType("");
     try {
-      const response = await fetch(`/api/registrations/${active.publicId}`, {
+      let url = `/api/registrations/${active.publicId}`;
+      if (active.publicId.includes("-d")) {
+        url = `/api/admin/registrations/delegation-delegates/${active.publicId}`;
+      } else if (active.registrationType === "delegation") {
+        url = `/api/admin/registrations/delegations/${active.publicId}`;
+      } else {
+        url = `/api/admin/registrations/individual/${active.publicId}`;
+      }
+      const response = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...patch, note: note.trim() || undefined })
@@ -1129,7 +1200,7 @@ export function PortalClient() {
         <section className="content" id="overview">
           <div className="page-heading">
             <div><p className="eyebrow">ADMIN PORTAL</p><h1>Good evening, Yoksh.</h1><p>Here is the live conference workspace.</p></div>
-            <div className="heading-actions"><Link className="button primary" href="/admin-portal/check-in">QR Check-in</Link><button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
+            <div className="heading-actions"><Link className="button primary" href="/admin-portal/check-in">QR Check-in</Link>{importReport && (<button className="button secondary" type="button" onClick={() => setShowImportReport(true)}>View import report</button>)}<button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
           </div>
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
 
@@ -1143,118 +1214,204 @@ export function PortalClient() {
           <div className="dashboard-grid">
             <section className="panel registrations-panel" id="registrations">
               <div className="panel-head"><div><p className="eyebrow">OPERATIONS</p><h2>Registrations</h2><small className="view-chip">{filterLabel(activeFilter)}{selectedCommittee ? ` - ${selectedCommittee}` : ""}</small></div><Link href="/registration">Add delegate</Link></div>
-              <div className="table-tools">
-                <div className="tabs" role="tablist">
-                  {[
-                    ["all", registrations.length],
-                    ["pending", registrations.filter(needsReview).length],
-                    ["payments", stats.needsPayment],
-                    ["approved", stats.approved.length],
-                    ["allotments", stats.needsAllotment],
-                    ["allotted", stats.allotted.length]
-                  ].map(([filter, count]) => (
-                    <button className={`tab ${activeFilter === filter ? "active" : ""}`} data-filter={filter} onClick={() => setActiveFilter(String(filter))} key={filter}>{String(filter)[0].toUpperCase() + String(filter).slice(1)} <span>{count}</span></button>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                  <select
-                    value={regTypeFilter}
-                    onChange={(e) => setRegTypeFilter(e.target.value as any)}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid var(--line)",
-                      background: "#fff",
-                      color: "var(--text)",
-                      fontWeight: "600",
-                      fontSize: "13px",
-                      outline: "none",
-                      cursor: "pointer"
-                    }}
+              
+              <div className="tabs" role="tablist" style={{ marginBottom: "16px", borderBottom: "1px solid var(--line)" }}>
+                {[
+                  ["individual", "Individual Registrations", visibleIndividuals.length],
+                  ["delegation", "Delegation Registrations", visibleDelegations.length],
+                  ["delegates", "Delegation Delegates", visibleDelegates.length]
+                ].map(([tab, label, count]) => (
+                  <button 
+                    className={`tab ${activeTab === tab ? "active" : ""}`} 
+                    onClick={() => {
+                      setActiveTab(tab as any);
+                      setActiveFilter("all");
+                    }} 
+                    key={tab}
+                    style={{ fontSize: "14px", padding: "10px 16px", fontWeight: "600" }}
                   >
-                    <option value="all">All Registrations</option>
-                    <option value="individual">Individual Registrations</option>
-                    <option value="delegation">Delegation Registrations</option>
-                  </select>
-                  {(selectedCommittee || search || activeFilter !== "all" || regTypeFilter !== "all") ? <button className="filter-button" type="button" onClick={clearView}>Clear filters</button> : null}
+                    {label} <span>{count}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="table-tools">
+                {activeTab === "individual" && (
+                  <div className="tabs" role="tablist">
+                    {[
+                      ["all", registrations.filter(r => r.registrationType === "individual").length],
+                      ["pending", registrations.filter(r => r.registrationType === "individual" && needsReview(r)).length],
+                      ["payments", registrations.filter(r => r.registrationType === "individual" && r.paymentStatus !== "Verified").length],
+                      ["approved", registrations.filter(r => r.registrationType === "individual" && r.registrationStatus === "Approved").length],
+                      ["allotments", registrations.filter(r => r.registrationType === "individual" && r.registrationStatus === "Approved" && r.allotmentStatus !== "Allotted").length],
+                      ["allotted", registrations.filter(r => r.registrationType === "individual" && r.allotmentStatus === "Allotted").length]
+                    ].map(([filter, count]) => (
+                      <button className={`tab ${activeFilter === filter ? "active" : ""}`} onClick={() => setActiveFilter(String(filter))} key={filter}>{String(filter)[0].toUpperCase() + String(filter).slice(1)} <span>{count}</span></button>
+                    ))}
+                  </div>
+                )}
+                {activeTab === "delegation" && (
+                  <div className="tabs" role="tablist">
+                    {[
+                      ["all", registrations.filter(r => r.registrationType === "delegation").length],
+                      ["pending", registrations.filter(r => r.registrationType === "delegation" && needsReview(r)).length],
+                      ["payments", registrations.filter(r => r.registrationType === "delegation" && r.paymentStatus !== "Verified").length],
+                      ["approved", registrations.filter(r => r.registrationType === "delegation" && r.registrationStatus === "Approved").length]
+                    ].map(([filter, count]) => (
+                      <button className={`tab ${activeFilter === filter ? "active" : ""}`} onClick={() => setActiveFilter(String(filter))} key={filter}>{String(filter)[0].toUpperCase() + String(filter).slice(1)} <span>{count}</span></button>
+                    ))}
+                  </div>
+                )}
+                {activeTab === "delegates" && (
+                  <div className="tabs" role="tablist">
+                    {[
+                      ["all", delegationDelegates.length],
+                      ["pending", delegationDelegates.filter(d => !d.checkedIn).length],
+                      ["allotments", delegationDelegates.filter(d => d.allotmentStatus !== "Allotted").length],
+                      ["allotted", delegationDelegates.filter(d => d.allotmentStatus === "Allotted").length]
+                    ].map(([filter, count]) => (
+                      <button className={`tab ${activeFilter === filter ? "active" : ""}`} onClick={() => setActiveFilter(String(filter))} key={filter}>{String(filter)[0].toUpperCase() + String(filter).slice(1)} <span>{count}</span></button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  {(selectedCommittee || search || activeFilter !== "all") ? <button className="filter-button" type="button" onClick={clearView}>Clear filters</button> : null}
                 </div>
               </div>
+              
               <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {isLoading ? (
-                      <tr><td colSpan={9}><div className="empty-state">Loading registrations...</div></td></tr>
-                    ) : visible.length ? visible.map((registration, index) => (
-                      <tr key={registration.publicId}>
-                        <td>
-                          <div className="delegate">
-                            <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
-                            <span>
-                              <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                {registration.name}
-                                <span style={{
-                                  fontSize: "0.75em",
-                                  padding: "2px 6px",
-                                  borderRadius: "4px",
-                                  fontWeight: "bold",
-                                  background: registration.registrationType === "delegation" ? "rgba(109, 67, 200, 0.15)" : "rgba(0, 128, 255, 0.1)",
-                                  color: registration.registrationType === "delegation" ? "var(--purple)" : "#0080ff"
-                                }}>
-                                  {registration.registrationType === "delegation" ? "Delegation" : "Individual"}
-                                </span>
-                              </strong>
-                              <small>{registration.institution || registration.email}</small>
+                {activeTab === "individual" && (
+                  <table>
+                    <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {isLoading ? (
+                        <tr><td colSpan={9}><div className="empty-state">Loading individual registrations...</div></td></tr>
+                      ) : visibleIndividuals.length ? visibleIndividuals.map((registration, index) => (
+                        <tr key={registration.publicId}>
+                          <td>
+                            <div className="delegate">
+                              <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
+                              <span>
+                                <strong>{registration.name}</strong>
+                                <small>{registration.institution || registration.email}</small>
+                              </span>
+                            </div>
+                          </td>
+                          <td>{registration.type}</td>
+                          <td>{registration.committee1}</td>
+                          <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
+                          <td><span className={`status ${statusClass(registration.registrationStatus)}`}>{registration.registrationStatus}</span></td>
+                          <td><span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span></td>
+                          <td><span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>{registration.checkedIn ? "Checked In" : "Not Checked In"}</span></td>
+                          <td><span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>{registration.certificateReleased ? "Released" : "Not Released"}</span></td>
+                          <td>
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
+                              {registration.certificateReleased ? (
+                                <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>Released</button>
+                              ) : registration.checkedIn ? (
+                                <button className="button primary small-btn" disabled={isSavingOps} onClick={() => issueParticipationCertForDelegate(registration.publicId)} style={{ fontSize: "0.8em", padding: "4px 8px" }}>Release Certificate</button>
+                              ) : (
+                                <button className="button secondary small-btn" disabled title="Certificate cannot be released because this delegate has not checked in yet." style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}>Release Certificate</button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )) : <tr><td colSpan={9}><div className="empty-state">No individual registrations found.</div></td></tr>}
+                    </tbody>
+                  </table>
+                )}
+
+                {activeTab === "delegation" && (
+                  <table>
+                    <thead><tr><th>Delegation Group</th><th>School/Institution</th><th>Coordinating Teacher</th><th>Payment</th><th>Status</th><th>Checked In</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {isLoading ? (
+                        <tr><td colSpan={7}><div className="empty-state">Loading delegations...</div></td></tr>
+                      ) : visibleDelegations.length ? visibleDelegations.map((registration, index) => (
+                        <tr key={registration.publicId}>
+                          <td>
+                            <div className="delegate">
+                              <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.delegationName || registration.name)}</span>
+                              <span>
+                                <strong>{registration.delegationName || registration.name}</strong>
+                                <small>ID: {registration.publicId}</small>
+                              </span>
+                            </div>
+                          </td>
+                          <td>{registration.institution || "N/A"}</td>
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <strong>{registration.coTeacherName}</strong>
+                              <small>{registration.email || registration.coTeacherEmail}</small>
+                            </div>
+                          </td>
+                          <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
+                          <td><span className={`status ${statusClass(registration.registrationStatus)}`}>{registration.registrationStatus}</span></td>
+                          <td>
+                            <span className="status allotted" style={{ fontWeight: "bold" }}>
+                              {registration.checkedInCount || 0} / {registration.totalDelegates || 10}
                             </span>
-                          </div>
-                        </td>
-                        <td>{registration.type}</td>
-                        <td>{registration.committee1}</td>
-                        <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
-                        <td><span className={`status ${statusClass(registration.registrationStatus)}`}>{registration.registrationStatus}</span></td>
-                        <td><span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span></td>
-                        <td>
-                          <span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>
-                            {registration.checkedIn ? "Checked In" : "Not Checked In"}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>
-                            {registration.certificateReleased ? "Released" : "Not Released"}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                            <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
-                            {registration.certificateReleased ? (
-                              <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>
-                                Released
-                              </button>
-                            ) : registration.checkedIn ? (
-                              <button 
-                                className="button primary small-btn" 
-                                disabled={isSavingOps}
-                                onClick={() => issueParticipationCertForDelegate(registration.publicId)}
-                                style={{ fontSize: "0.8em", padding: "4px 8px" }}
-                              >
-                                Release Certificate
-                              </button>
-                            ) : (
-                              <button 
-                                className="button secondary small-btn" 
-                                disabled 
-                                title="Certificate cannot be released because this delegate has not checked in yet."
-                                style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}
-                              >
-                                Release Certificate
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )) : <tr><td colSpan={9}><div className="empty-state">{registrations.length ? "No registrations match this view. Clear filters or search again." : "No registrations yet. New delegate submissions will appear here."}</div></td></tr>}
-                  </tbody>
-                </table>
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )) : <tr><td colSpan={7}><div className="empty-state">No delegations found.</div></td></tr>}
+                    </tbody>
+                  </table>
+                )}
+
+                {activeTab === "delegates" && (
+                  <table>
+                    <thead><tr><th>Delegate Name</th><th>Parent Delegation</th><th>Preference</th><th>Allotment</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {isLoading ? (
+                        <tr><td colSpan={7}><div className="empty-state">Loading delegates...</div></td></tr>
+                      ) : visibleDelegates.length ? visibleDelegates.map((registration, index) => (
+                        <tr key={registration.publicId}>
+                          <td>
+                            <div className="delegate">
+                              <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
+                              <span>
+                                <strong>{registration.name}</strong>
+                                <small>{registration.email || "No email"}</small>
+                              </span>
+                            </div>
+                          </td>
+                          <td>{registration.delegationName || "Group Delegation"}</td>
+                          <td>{registration.committee1 || "Not specified"}</td>
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span>
+                              {registration.allotmentStatus === "Allotted" && (
+                                <small style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "2px" }}>
+                                  {registration.allottedCommittee} ({registration.allottedPortfolio})
+                                </small>
+                              )}
+                            </div>
+                          </td>
+                          <td><span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>{registration.checkedIn ? "Checked In" : "Not Checked In"}</span></td>
+                          <td><span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>{registration.certificateReleased ? "Released" : "Not Released"}</span></td>
+                          <td>
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
+                              {registration.certificateReleased ? (
+                                <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>Released</button>
+                              ) : registration.checkedIn ? (
+                                <button className="button primary small-btn" disabled={isSavingOps} onClick={() => issueParticipationCertForDelegate(registration.publicId)} style={{ fontSize: "0.8em", padding: "4px 8px" }}>Release Certificate</button>
+                              ) : (
+                                <button className="button secondary small-btn" disabled title="Certificate cannot be released because this delegate has not checked in yet." style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}>Release Certificate</button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )) : <tr><td colSpan={7}><div className="empty-state">No delegation delegates found.</div></td></tr>}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </section>
 
@@ -1594,20 +1751,49 @@ export function PortalClient() {
                   <div><strong>City of Residence</strong><span>{active.city || "-"}</span></div>
                   <div><strong>Total Delegates</strong><span>{active.totalDelegates || "-"}</span></div>
                   <div className="wide" style={{ marginTop: "10px" }}>
-                    <strong>Delegates Roster</strong>
-                    <pre style={{
-                      whiteSpace: "pre-wrap",
-                      background: "#f6f6f6",
+                    <strong>Delegates Roster ({active.delegates?.length || 0} registered)</strong>
+                    <div style={{
+                      maxHeight: "180px",
+                      overflowY: "auto",
                       border: "1px solid var(--line)",
-                      padding: "12px",
                       borderRadius: "8px",
-                      marginTop: "5px",
-                      fontFamily: "inherit",
-                      maxHeight: "150px",
-                      overflowY: "auto"
+                      padding: "8px",
+                      background: "#fafafa",
+                      marginTop: "8px"
                     }}>
-                      {active.delegateNames || "No roster provided"}
-                    </pre>
+                      {active.delegates && active.delegates.length > 0 ? (
+                        <table style={{ width: "100%", fontSize: "0.85em", borderCollapse: "collapse" }}>
+                          <thead>
+                            <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
+                              <th style={{ textAlign: "left", padding: "4px", fontWeight: "bold" }}>Name</th>
+                              <th style={{ textAlign: "left", padding: "4px", fontWeight: "bold" }}>Allotment</th>
+                              <th style={{ textAlign: "left", padding: "4px", fontWeight: "bold" }}>Check-in</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {active.delegates.map((d: any) => (
+                              <tr key={d.id} style={{ borderBottom: "1px solid #eee" }}>
+                                <td style={{ padding: "6px 4px" }}>{d.name}</td>
+                                <td style={{ padding: "6px 4px" }}>
+                                  {d.allotmentStatus === "Allotted" ? (
+                                    <span>{d.allottedCommittee} ({d.allottedPortfolio})</span>
+                                  ) : (
+                                    <span style={{ color: "var(--text-muted)", fontSize: "0.9em" }}>Not allotted</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: "6px 4px" }}>
+                                  <span className={`status ${d.checkedIn ? "verified" : "pending"}`} style={{ fontSize: "0.8em", padding: "1px 4px" }}>
+                                    {d.checkedIn ? "Checked In" : "Not Checked In"}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.9em", padding: "8px" }}>No delegates registered yet.</p>
+                      )}
+                    </div>
                   </div>
                 </>
               ) : (
@@ -1637,72 +1823,191 @@ export function PortalClient() {
                   )}
                 </span>
               </div>
-              <div>
-                <strong>Check-in Status</strong>
-                <span>
-                  {active.checkedIn ? (
-                    <span className="status verified">
-                      Checked In {active.checkedInBy ? `(by ${active.checkedInBy})` : ""}
-                    </span>
-                  ) : (
-                    <span className="status pending">Not Checked In</span>
-                  )}
-                </span>
-              </div>
-              <div>
-                <strong>Certificate Status</strong>
-                <span>
-                  <span className={`status ${active.certificateReleased ? "verified" : "pending"}`}>
-                    {active.certificateReleased ? "Released" : "Not Released"}
+              {active.registrationType !== "delegation" && !active.publicId?.includes("-d") && (
+                <div>
+                  <strong>Check-in Status</strong>
+                  <span>
+                    {active.checkedIn ? (
+                      <span className="status verified">
+                        Checked In {active.checkedInBy ? `(by ${active.checkedInBy})` : ""}
+                      </span>
+                    ) : (
+                      <span className="status pending">Not Checked In</span>
+                    )}
                   </span>
-                </span>
-              </div>
+                </div>
+              )}
+              {active.publicId?.includes("-d") && (
+                <div>
+                  <strong>Check-in Status</strong>
+                  <span>
+                    {active.checkedIn ? (
+                      <span className="status verified">
+                        Checked In {active.checkedInBy ? `(by ${active.checkedInBy})` : ""}
+                      </span>
+                    ) : (
+                      <span className="status pending">Not Checked In</span>
+                    )}
+                  </span>
+                </div>
+              )}
+              {active.registrationType !== "delegation" && (
+                <div>
+                  <strong>Certificate Status</strong>
+                  <span>
+                    <span className={`status ${active.certificateReleased ? "verified" : "pending"}`}>
+                      {active.certificateReleased ? "Released" : "Not Released"}
+                    </span>
+                  </span>
+                </div>
+              )}
               {(active.allotmentStatus === "Allotted" || (active.registrationType === "delegation" && active.registrationStatus === "Approved")) && (
                 <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
               )}
             </div>
-            <div className="allotment-editor">
-              <label>Allotted committee<select value={committee} onChange={(event) => setCommittee(event.target.value)}><option value="">Select committee</option>{Object.keys(capacities).map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label>Allotted portfolio<input value={portfolio} onChange={(event) => setPortfolio(event.target.value)} placeholder="Country / role" /></label>
-              <label className="wide">Admin note<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note for this update" /></label>
-              <p className="empty-copy wide">Admins can change the allotted committee or portfolio here, then save the allotment again. The delegate dashboard and QR pass update immediately from the database.</p>
-            </div>
+            
+            {active.registrationType !== "delegation" ? (
+              <div className="allotment-editor">
+                <label>Allotted committee<select value={committee} onChange={(event) => setCommittee(event.target.value)}><option value="">Select committee</option>{Object.keys(capacities).map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label>Allotted portfolio<input value={portfolio} onChange={(event) => setPortfolio(event.target.value)} placeholder="Country / role" /></label>
+                <label className="wide">Admin note<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note for this update" /></label>
+                <p className="empty-copy wide">Admins can change the allotted committee or portfolio here, then save the allotment again. The delegate dashboard and QR pass update immediately from the database.</p>
+              </div>
+            ) : (
+              <div className="allotment-editor">
+                <label className="wide">Admin note<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note for this delegation registration" /></label>
+              </div>
+            )}
+
             <div className="dialog-actions action-wrap">
               <button className="button secondary" onClick={() => setActive(null)}>Close</button>
-              {active.certificateReleased ? (
-                <button className="button primary" disabled style={{ opacity: 0.7 }}>Released</button>
-              ) : active.checkedIn ? (
-                <button 
-                  className="button primary" 
-                  disabled={isSavingOps}
-                  onClick={() => issueParticipationCertForDelegate(active.publicId)}
-                >
-                  {isSavingOps ? "Releasing..." : "Release Certificate"}
-                </button>
-              ) : (
-                <div style={{ display: "inline-flex", flexDirection: "column", gap: "4px" }}>
+              {active.registrationType !== "delegation" && (
+                active.certificateReleased ? (
+                  <button className="button primary" disabled style={{ opacity: 0.7 }}>Released</button>
+                ) : active.checkedIn ? (
                   <button 
-                    className="button secondary" 
-                    disabled 
-                    title="Certificate cannot be released because this delegate has not checked in yet."
-                    style={{ cursor: "not-allowed", opacity: 0.5 }}
+                    className="button primary" 
+                    disabled={isSavingOps}
+                    onClick={() => issueParticipationCertForDelegate(active.publicId)}
                   >
-                    Release Certificate
+                    {isSavingOps ? "Releasing..." : "Release Certificate"}
                   </button>
-                  <small style={{ color: "var(--text-danger)", fontSize: "0.8em" }}>
-                    Certificate cannot be released because this delegate has not checked in yet.
-                  </small>
-                </div>
+                ) : (
+                  <div style={{ display: "inline-flex", flexDirection: "column", gap: "4px" }}>
+                    <button 
+                      className="button secondary" 
+                      disabled 
+                      title="Certificate cannot be released because this delegate has not checked in yet."
+                      style={{ cursor: "not-allowed", opacity: 0.5 }}
+                    >
+                      Release Certificate
+                    </button>
+                    <small style={{ color: "var(--text-danger)", fontSize: "0.8em" }}>
+                      Certificate cannot be released because this delegate has not checked in yet.
+                    </small>
+                  </div>
+                )
               )}
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment rejection", { paymentStatus: "Rejected", registrationStatus: "Action Needed" })}>{activeAction === "Payment rejection" ? "Saving..." : "Reject payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Payment verification", { paymentStatus: "Verified" })}>{activeAction === "Payment verification" ? "Saving..." : "Verify payment"}</button>
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Registration approval", { paymentStatus: "Verified", registrationStatus: "Approved" })}>{activeAction === "Registration approval" ? "Saving..." : "Approve"}</button>
-              <button className="button primary" disabled={Boolean(activeAction)} onClick={() => patchActive("Allotment release", { paymentStatus: "Verified", registrationStatus: "Approved", allotmentStatus: "Allotted", allottedCommittee: committee || "", allottedPortfolio: portfolio || "" })}>{activeAction === "Allotment release" ? "Saving..." : active.allotmentStatus === "Allotted" ? "Save allotment changes" : "Release allotment"}</button>
+              {active.registrationType !== "delegation" && (
+                <button className="button primary" disabled={Boolean(activeAction)} onClick={() => patchActive("Allotment release", { paymentStatus: "Verified", registrationStatus: "Approved", allotmentStatus: "Allotted", allottedCommittee: committee || "", allottedPortfolio: portfolio || "" })}>{activeAction === "Allotment release" ? "Saving..." : active.allotmentStatus === "Allotted" ? "Save allotment changes" : "Release allotment"}</button>
+              )}
             </div>
-            {active.notes?.length ? <div className="notes-list"><h3>Admin notes</h3>{active.notes.map((item) => <p key={item.id}>{item.note}</p>)}</div> : null}
+            {active.notes?.length ? <div className="notes-list"><h3>Admin notes</h3>{active.notes.map((item: any) => <p key={item.id}>{item.note}</p>)}</div> : null}
           </div>
         </div>
       ) : null}
+
+      {showImportReport && importReport && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: "600px" }}>
+            <div className="dialog-head">
+              <div>
+                <p className="eyebrow">SYSTEM REPORT</p>
+                <h2>Excel Import & Migration Report</h2>
+              </div>
+              <button onClick={() => setShowImportReport(false)}>x</button>
+            </div>
+            <div className="detail-body" style={{ gap: "16px" }}>
+              <div className="stats-grid mini-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)", width: "100%", gap: "10px", margin: "10px 0" }}>
+                <article className="stat-card" style={{ padding: "12px" }}>
+                  <p style={{ fontSize: "0.8em" }}>Total Rows</p>
+                  <h3>{importReport.totalRows}</h3>
+                </article>
+                <article className="stat-card" style={{ padding: "12px" }}>
+                  <p style={{ fontSize: "0.8em" }}>Valid Rows</p>
+                  <h3>{importReport.validRows}</h3>
+                </article>
+                <article className="stat-card" style={{ padding: "12px" }}>
+                  <p style={{ fontSize: "0.8em" }}>Groups</p>
+                  <h3>{importReport.uniqueDelegationGroups}</h3>
+                </article>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", width: "100%" }}>
+                <div>
+                  <h4 style={{ fontWeight: "bold", fontSize: "0.95em", borderBottom: "1px solid var(--line)", paddingBottom: "6px", marginBottom: "8px" }}>Classifications</h4>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.9em" }}>
+                    <span style={{ color: "var(--text-muted)" }}>Individuals:</span>
+                    <strong style={{ marginLeft: "auto" }}>{importReport.individualRows}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.9em" }}>
+                    <span style={{ color: "var(--text-muted)" }}>Delegates:</span>
+                    <strong style={{ marginLeft: "auto" }}>{importReport.delegationDelegateRows}</strong>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 style={{ fontWeight: "bold", fontSize: "0.95em", borderBottom: "1px solid var(--line)", paddingBottom: "6px", marginBottom: "8px" }}>Warnings / Skips</h4>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.9em" }}>
+                    <span style={{ color: "var(--text-muted)" }}>Skipped (no name):</span>
+                    <strong style={{ marginLeft: "auto" }}>{importReport.skippedNoName}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.9em" }}>
+                    <span style={{ color: "var(--text-muted)" }}>Missing Email:</span>
+                    <strong style={{ marginLeft: "auto" }}>{importReport.missingEmail}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.9em" }}>
+                    <span style={{ color: "var(--text-muted)" }}>Missing Phone:</span>
+                    <strong style={{ marginLeft: "auto" }}>{importReport.missingPhone}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.9em" }}>
+                    <span style={{ color: "var(--text-muted)" }}>Missing Allotment:</span>
+                    <strong style={{ marginLeft: "auto" }}>{importReport.missingAllotment}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ width: "100%", marginTop: "10px" }}>
+                <h4 style={{ fontWeight: "bold", fontSize: "0.95em", borderBottom: "1px solid var(--line)", paddingBottom: "6px", marginBottom: "8px" }}>Delegation Group counts</h4>
+                <div style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid var(--line)", borderRadius: "8px", padding: "8px", background: "var(--bg-accent)" }}>
+                  <table style={{ width: "100%", fontSize: "0.85em", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
+                        <th style={{ textAlign: "left", padding: "4px", fontWeight: "bold" }}>Delegation Group</th>
+                        <th style={{ textAlign: "right", padding: "4px", fontWeight: "bold" }}>Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importReport.delegationGroups && importReport.delegationGroups.map((g: any, i: number) => (
+                        <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+                          <td style={{ padding: "6px 4px" }}>{g.name}</td>
+                          <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: "bold" }}>{g.count} delegates</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div className="dialog-actions action-wrap" style={{ marginTop: "16px" }}>
+              <button className="button secondary" onClick={() => setShowImportReport(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

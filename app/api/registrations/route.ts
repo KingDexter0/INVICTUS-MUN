@@ -7,7 +7,8 @@ import { uploadPaymentProof } from "../../../lib/cloudinary";
 import {
   calculateRegistrationAmount,
   publicIdFromCount,
-  serializeRegistration
+  serializeIndividualRegistration,
+  serializeDelegationRegistration
 } from "../../../lib/registrations";
 
 export const dynamic = "force-dynamic";
@@ -99,8 +100,13 @@ export async function POST(request: Request) {
 
     const registrationType = text(formData, "registrationType") || "individual";
     const type = text(formData, "type") || (registrationType === "delegation" ? "Group Delegation" : "Individual Delegate");
-    const count = await prisma.registration.count();
     
+    // Count both tables to generate next public ID
+    const countInd = await prisma.individualRegistration.count();
+    const countDel = await prisma.delegationRegistration.count();
+    const count = countInd + countDel;
+    const publicId = publicIdFromCount(count);
+
     // File upload logic for screenshot
     const screenshotFile = (formData.get("paymentScreenshot") || formData.get("file") || formData.get("paymentProof")) as File | null;
     let screenshotUrl = null;
@@ -133,77 +139,134 @@ export async function POST(request: Request) {
       totalDelegatesVal
     );
 
-    // Prepare fields based on type
     const isIndividual = registrationType === "individual";
-    const name = isIndividual ? text(formData, "name") : text(formData, "delegationName");
-    const email = isIndividual ? text(formData, "email") : text(formData, "coTeacherEmail");
-    const phone = isIndividual ? text(formData, "phone") : text(formData, "coTeacherPhone");
-    const institution = text(formData, "institution") || null;
-    const city = text(formData, "city") || null;
-    
-    const registration = await prisma.registration.create({
-      data: {
-        publicId: publicIdFromCount(count),
-        name,
-        email,
-        phone,
-        institution,
-        type,
-        committee1: isIndividual ? text(formData, "committee1") : "Group Delegation",
-        committee2: isIndividual ? (text(formData, "committee2") || null) : null,
-        portfolio1: isIndividual ? (text(formData, "portfolio1") || null) : null,
-        muns: isIndividual ? numberOrNull(formData, "muns") : null,
-        awards: isIndividual ? numberOrNull(formData, "awards") : null,
-        experience: isIndividual ? (text(formData, "experience") || null) : null,
-        utr: text(formData, "utr") || null,
-        amount: calculatedAmount,
-        paymentProofUrl: screenshotUrl,
-        paymentProofPublicId: screenshotPublicId,
-        accommodation: accommodationVal,
-        transport: text(formData, "transport") || null,
-        arrivalCity: text(formData, "arrivalCity") || null,
-        requirements: text(formData, "requirements") || null,
-        paymentStatus: screenshotUrl ? "Review" : "Pending", // Automatically move to Review if screenshot uploaded
-        
-        // New columns
-        registrationType,
-        accommodationRequired,
-        paymentScreenshotUrl: screenshotUrl,
-        paymentScreenshotPublicId: screenshotPublicId,
-        totalAmountPaid: calculatedAmount,
-        age: isIndividual ? numberOrNull(formData, "age") : null,
-        dob: isIndividual ? text(formData, "dob") : null,
-        gender: isIndividual ? text(formData, "gender") : null,
-        gradeYear: isIndividual ? text(formData, "gradeYear") : null,
-        portfolio2: isIndividual ? text(formData, "portfolio2") : null,
-        city,
-        isPartOfDelegation: isIndividual ? (text(formData, "isPartOfDelegation") === "Yes") : false,
-        delegationName: text(formData, "delegationName") || null,
-        refPerson: isIndividual ? text(formData, "refPerson") : null,
-        coTeacherName: !isIndividual ? text(formData, "coTeacherName") : null,
-        coTeacherPhone: !isIndividual ? text(formData, "coTeacherPhone") : null,
-        coTeacherEmail: !isIndividual ? text(formData, "coTeacherEmail") : null,
-        totalDelegates: !isIndividual ? totalDelegatesVal : null,
-        delegateNames: !isIndividual ? text(formData, "delegateNames") : null
+    let savedRegistration: any;
+
+    if (isIndividual) {
+      const email = text(formData, "email");
+      const phone = text(formData, "phone");
+      const name = text(formData, "name");
+      const institution = text(formData, "institution") || null;
+      const city = text(formData, "city") || null;
+
+      savedRegistration = await prisma.individualRegistration.create({
+        data: {
+          publicId,
+          name,
+          email,
+          phone,
+          institution,
+          city,
+          committee1: text(formData, "committee1"),
+          portfolio1: text(formData, "portfolio1") || null,
+          committee2: text(formData, "committee2") || null,
+          portfolio2: text(formData, "portfolio2") || null,
+          age: numberOrNull(formData, "age"),
+          dob: text(formData, "dob") || null,
+          gender: text(formData, "gender") || null,
+          gradeYear: text(formData, "gradeYear") || null,
+          isPartOfDelegation: text(formData, "isPartOfDelegation") === "Yes",
+          delegationName: text(formData, "delegationName") || null,
+          refPerson: text(formData, "refPerson") || null,
+          muns: numberOrNull(formData, "muns"),
+          awards: numberOrNull(formData, "awards"),
+          experience: text(formData, "experience") || null,
+          utr: text(formData, "utr") || null,
+          amount: calculatedAmount,
+          paymentProofUrl: screenshotUrl,
+          paymentProofPublicId: screenshotPublicId,
+          accommodation: accommodationVal,
+          transport: text(formData, "transport") || null,
+          arrivalCity: text(formData, "arrivalCity") || null,
+          requirements: text(formData, "requirements") || null,
+          paymentStatus: screenshotUrl ? "Review" : "Pending",
+          registrationType,
+          accommodationRequired,
+          paymentScreenshotUrl: screenshotUrl,
+          paymentScreenshotPublicId: screenshotPublicId,
+          totalAmountPaid: calculatedAmount
+        }
+      });
+
+      void sendRegistrationEmail({
+        to: savedRegistration.email,
+        name: savedRegistration.name,
+        publicId: savedRegistration.publicId,
+        heading: "Registration submitted",
+        action: "Your Invictus MUN registration has been submitted successfully.",
+        dashboardPath: `/dashboard?id=${encodeURIComponent(savedRegistration.publicId)}`,
+        details: [
+          ["Registration type", savedRegistration.registrationType],
+          ["Role/Committee", savedRegistration.committee1 || "Delegate"],
+          ["Payment status", savedRegistration.paymentStatus],
+          ["Registration status", savedRegistration.registrationStatus]
+        ]
+      });
+
+      return NextResponse.json({ registration: serializeIndividualRegistration(savedRegistration), id: savedRegistration.publicId });
+
+    } else {
+      const delegationName = text(formData, "delegationName");
+      const coTeacherName = text(formData, "coTeacherName");
+      const coTeacherEmail = text(formData, "coTeacherEmail");
+      const coTeacherPhone = text(formData, "coTeacherPhone");
+      const city = text(formData, "city") || null;
+      const institution = text(formData, "institution") || null;
+
+      savedRegistration = await prisma.delegationRegistration.create({
+        data: {
+          publicId,
+          delegationName,
+          institution,
+          coTeacherName,
+          coTeacherEmail,
+          coTeacherPhone,
+          city,
+          totalDelegates: totalDelegatesVal,
+          amount: calculatedAmount,
+          paymentProofUrl: screenshotUrl,
+          paymentProofPublicId: screenshotPublicId,
+          paymentStatus: screenshotUrl ? "Review" : "Pending",
+          registrationType,
+          accommodationRequired,
+          paymentScreenshotUrl: screenshotUrl,
+          paymentScreenshotPublicId: screenshotPublicId,
+          totalAmountPaid: calculatedAmount
+        }
+      });
+
+      // Split delegateNames and create delegation delegate rows
+      const delegateNamesStr = text(formData, "delegateNames");
+      const names = delegateNamesStr ? delegateNamesStr.split(",").map(n => n.trim()).filter(Boolean) : [];
+      
+      for (let i = 0; i < names.length; i++) {
+        await prisma.delegationDelegate.create({
+          data: {
+            publicId: `${publicId}-d${i + 1}`,
+            delegationId: savedRegistration.id,
+            name: names[i]
+          }
+        });
       }
-    });
 
-    void sendRegistrationEmail({
-      to: registration.email,
-      name: registration.name,
-      publicId: registration.publicId,
-      heading: "Registration submitted",
-      action: "Your Invictus MUN registration has been submitted successfully. Please open your dashboard to track your verification status.",
-      dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-      details: [
-        ["Registration type", registration.type],
-        ["Role/Delegation", registration.registrationType === "delegation" ? "Delegation Group" : (registration.committee1 || "Delegate")],
-        ["Payment status", registration.paymentStatus],
-        ["Registration status", registration.registrationStatus]
-      ]
-    });
+      void sendRegistrationEmail({
+        to: savedRegistration.coTeacherEmail,
+        name: savedRegistration.coTeacherName,
+        publicId: savedRegistration.publicId,
+        heading: "Registration submitted",
+        action: "Your Invictus MUN delegation registration has been submitted successfully.",
+        dashboardPath: `/dashboard?id=${encodeURIComponent(savedRegistration.publicId)}`,
+        details: [
+          ["Delegation Name", savedRegistration.delegationName],
+          ["Co-ordinating Teacher", savedRegistration.coTeacherName],
+          ["Payment status", savedRegistration.paymentStatus],
+          ["Registration status", savedRegistration.registrationStatus]
+        ]
+      });
 
-    return NextResponse.json({ registration: serializeRegistration(registration), id: registration.publicId });
+      return NextResponse.json({ registration: serializeDelegationRegistration(savedRegistration), id: savedRegistration.publicId });
+    }
+
   } catch (error) {
     console.error(error);
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -228,10 +291,10 @@ export async function GET(request: Request) {
     const registrationStatus = searchParams.get("registrationStatus")?.trim();
     const registrationType = searchParams.get("registrationType")?.trim();
 
-    const where: Prisma.RegistrationWhereInput = {
+    // 1. Fetch from IndividualRegistration
+    const indWhere: Prisma.IndividualRegistrationWhereInput = {
       ...(paymentStatus ? { paymentStatus } : {}),
       ...(registrationStatus ? { registrationStatus } : {}),
-      ...(registrationType ? { registrationType } : {}),
       ...(search
         ? {
             OR: [
@@ -247,13 +310,62 @@ export async function GET(request: Request) {
         : {})
     };
 
-    const registrations = await prisma.registration.findMany({
-      where,
-      include: { notes: { orderBy: { createdAt: "desc" } } },
-      orderBy: { createdAt: "desc" }
+    const individuals = await prisma.individualRegistration.findMany({
+      where: indWhere,
+      include: { notes: { orderBy: { createdAt: "desc" } } }
     });
 
-    return NextResponse.json({ registrations: registrations.map(serializeRegistration) });
+    // 2. Fetch from DelegationRegistration
+    const delWhere: Prisma.DelegationRegistrationWhereInput = {
+      ...(paymentStatus ? { paymentStatus } : {}),
+      ...(registrationStatus ? { registrationStatus } : {}),
+      ...(search
+        ? {
+            OR: [
+              { publicId: { contains: search, mode: "insensitive" } },
+              { delegationName: { contains: search, mode: "insensitive" } },
+              { coTeacherEmail: { contains: search, mode: "insensitive" } },
+              { coTeacherPhone: { contains: search, mode: "insensitive" } },
+              { institution: { contains: search, mode: "insensitive" } }
+            ]
+          }
+        : {})
+    };
+
+    const delegations = await prisma.delegationRegistration.findMany({
+      where: delWhere,
+      include: { notes: { orderBy: { createdAt: "desc" } }, delegates: true }
+    });
+
+    // Normalize to legacy format so dashboard stats & global operations don't break
+    const normalizedIndividuals = individuals.map(item => ({
+      ...serializeIndividualRegistration(item),
+      registrationType: "individual"
+    }));
+
+    const normalizedDelegations = delegations.map(item => ({
+      ...serializeDelegationRegistration(item),
+      name: item.delegationName,
+      email: item.coTeacherEmail,
+      phone: item.coTeacherPhone,
+      type: "Group Delegation",
+      committee1: "Group Delegation",
+      registrationType: "delegation"
+    }));
+
+    let combined = [...normalizedIndividuals, ...normalizedDelegations];
+
+    // Apply registrationType filter if active
+    if (registrationType === "individual") {
+      combined = normalizedIndividuals;
+    } else if (registrationType === "delegation") {
+      combined = normalizedDelegations;
+    }
+
+    // Sort combined by createdAt desc
+    combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return NextResponse.json({ registrations: combined });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });

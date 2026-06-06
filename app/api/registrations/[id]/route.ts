@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../lib/admin";
 import { sendRegistrationEmail } from "../../../../lib/email";
 import { prisma } from "../../../../lib/prisma";
-import { serializeRegistration } from "../../../../lib/registrations";
+import {
+  serializeIndividualRegistration,
+  serializeDelegationRegistration
+} from "../../../../lib/registrations";
 import { operationsEmitter } from "../../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
 const paymentStatuses = ["Pending", "Under Review", "Verified", "Rejected"];
 const registrationStatuses = ["Pending", "Approved", "Rejected", "Action Needed"];
-const allotmentStatuses = ["Pending", "Allotted"];
+const allotmentStatuses = ["Not allotted", "Pending", "Allotted"];
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -40,93 +43,194 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       if (key in body) patch[key] = body[key] || null;
     }
 
-    const registration = await prisma.registration.update({
-      where: { publicId: params.id },
-      data: {
-        ...patch,
-        notes: body.note
-          ? {
-              create: {
-                note: String(body.note)
-              }
-            }
-          : undefined
-      },
-      include: { notes: { orderBy: { createdAt: "desc" } } }
+    // 1. Try to find and update in IndividualRegistration
+    const individual = await prisma.individualRegistration.findUnique({
+      where: { publicId: params.id }
     });
 
-    let emailStatus: "sent" | "sent-test" | "failed" | "skipped" | undefined;
-    if (body.paymentStatus === "Verified" && !body.registrationStatus && !body.allotmentStatus) {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Payment verified",
-        action: "Your payment has been verified by the Invictus MUN organizing team.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Payment status", registration.paymentStatus],
-          ["Registration status", registration.registrationStatus]
-        ]
-      })).status;
-    } else if (body.paymentStatus === "Rejected") {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Payment needs attention",
-        action: "Your payment could not be verified. Please contact the organizing team with your transaction screenshot.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Payment status", registration.paymentStatus],
-          ["Registration status", registration.registrationStatus]
-        ]
-      })).status;
-    } else if (body.allotmentStatus === "Allotted") {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Allotment released",
-        action: "Your Invictus MUN committee and portfolio allotment has been released.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Committee", registration.allottedCommittee],
-          ["Portfolio", registration.allottedPortfolio],
-          ["Allotment status", registration.allotmentStatus]
-        ]
-      })).status;
-    } else if (body.registrationStatus === "Approved") {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Registration approved",
-        action: "Your Invictus MUN registration has been approved.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Payment status", registration.paymentStatus],
-          ["Registration status", registration.registrationStatus]
-        ]
-      })).status;
+    if (individual) {
+      const updated = await prisma.individualRegistration.update({
+        where: { id: individual.id },
+        data: {
+          ...patch,
+          notes: body.note
+            ? {
+                create: {
+                  note: String(body.note)
+                }
+              }
+            : undefined
+        },
+        include: { notes: { orderBy: { createdAt: "desc" } } }
+      });
+
+      let emailStatus: "sent" | "sent-test" | "failed" | "skipped" | undefined;
+      if (body.paymentStatus === "Verified" && !body.registrationStatus && !body.allotmentStatus) {
+        emailStatus = (await sendRegistrationEmail({
+          to: updated.email,
+          name: updated.name,
+          publicId: updated.publicId,
+          heading: "Payment verified",
+          action: "Your payment has been verified by the Invictus MUN organizing team.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(updated.publicId)}`,
+          details: [
+            ["Payment status", updated.paymentStatus],
+            ["Registration status", updated.registrationStatus]
+          ]
+        })).status;
+      } else if (body.paymentStatus === "Rejected") {
+        emailStatus = (await sendRegistrationEmail({
+          to: updated.email,
+          name: updated.name,
+          publicId: updated.publicId,
+          heading: "Payment needs attention",
+          action: "Your payment could not be verified. Please contact the organizing team.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(updated.publicId)}`,
+          details: [
+            ["Payment status", updated.paymentStatus],
+            ["Registration status", updated.registrationStatus]
+          ]
+        })).status;
+      } else if (body.allotmentStatus === "Allotted") {
+        emailStatus = (await sendRegistrationEmail({
+          to: updated.email,
+          name: updated.name,
+          publicId: updated.publicId,
+          heading: "Allotment released",
+          action: "Your Invictus MUN committee and portfolio allotment has been released.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(updated.publicId)}`,
+          details: [
+            ["Committee", updated.allottedCommittee],
+            ["Portfolio", updated.allottedPortfolio],
+            ["Allotment status", updated.allotmentStatus]
+          ]
+        })).status;
+      } else if (body.registrationStatus === "Approved") {
+        emailStatus = (await sendRegistrationEmail({
+          to: updated.email,
+          name: updated.name,
+          publicId: updated.publicId,
+          heading: "Registration approved",
+          action: "Your Invictus MUN registration has been approved.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(updated.publicId)}`,
+          details: [
+            ["Payment status", updated.paymentStatus],
+            ["Registration status", updated.registrationStatus]
+          ]
+        })).status;
+      }
+
+      const serialized = {
+        ...serializeIndividualRegistration(updated),
+        registrationType: "individual"
+      };
+
+      operationsEmitter.emit("update", {
+        type: "delegate:updated",
+        data: {
+          publicId: params.id,
+          updatedFields: patch,
+          registration: serialized
+        }
+      });
+
+      return NextResponse.json({ registration: serialized, emailStatus });
     }
 
-    operationsEmitter.emit("update", {
-      type: "delegate:updated",
-      data: {
-        publicId: params.id,
-        updatedFields: patch,
-        registration: serializeRegistration(registration)
-      }
+    // 2. Try to find and update in DelegationRegistration
+    const delegation = await prisma.delegationRegistration.findUnique({
+      where: { publicId: params.id }
     });
 
-    return NextResponse.json({ registration: serializeRegistration(registration), emailStatus });
+    if (delegation) {
+      const updated = await prisma.delegationRegistration.update({
+        where: { id: delegation.id },
+        data: {
+          paymentStatus: patch.paymentStatus || undefined,
+          registrationStatus: patch.registrationStatus || undefined,
+          notes: body.note
+            ? {
+                create: {
+                  note: String(body.note)
+                }
+              }
+            : undefined
+        },
+        include: { notes: { orderBy: { createdAt: "desc" } } }
+      });
+
+      let emailStatus: "sent" | "sent-test" | "failed" | "skipped" | undefined;
+      if (body.paymentStatus === "Verified" && !body.registrationStatus) {
+        emailStatus = (await sendRegistrationEmail({
+          to: updated.coTeacherEmail,
+          name: updated.coTeacherName,
+          publicId: updated.publicId,
+          heading: "Payment verified",
+          action: "Your delegation's payment has been verified by the Invictus MUN organizing team.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(updated.publicId)}`,
+          details: [
+            ["Delegation Name", updated.delegationName],
+            ["Payment status", updated.paymentStatus],
+            ["Registration status", updated.registrationStatus]
+          ]
+        })).status;
+      } else if (body.paymentStatus === "Rejected") {
+        emailStatus = (await sendRegistrationEmail({
+          to: updated.coTeacherEmail,
+          name: updated.coTeacherName,
+          publicId: updated.publicId,
+          heading: "Payment needs attention",
+          action: "Your delegation's payment could not be verified. Please contact the organizing team.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(updated.publicId)}`,
+          details: [
+            ["Delegation Name", updated.delegationName],
+            ["Payment status", updated.paymentStatus],
+            ["Registration status", updated.registrationStatus]
+          ]
+        })).status;
+      } else if (body.registrationStatus === "Approved") {
+        emailStatus = (await sendRegistrationEmail({
+          to: updated.coTeacherEmail,
+          name: updated.coTeacherName,
+          publicId: updated.publicId,
+          heading: "Registration approved",
+          action: "Your delegation's registration has been approved.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(updated.publicId)}`,
+          details: [
+            ["Delegation Name", updated.delegationName],
+            ["Payment status", updated.paymentStatus],
+            ["Registration status", updated.registrationStatus]
+          ]
+        })).status;
+      }
+
+      const serialized = {
+        ...serializeDelegationRegistration(updated),
+        name: updated.delegationName,
+        email: updated.coTeacherEmail,
+        phone: updated.coTeacherPhone,
+        type: "Group Delegation",
+        committee1: "Group Delegation",
+        registrationType: "delegation"
+      };
+
+      operationsEmitter.emit("update", {
+        type: "delegate:updated",
+        data: {
+          publicId: params.id,
+          updatedFields: patch,
+          registration: serialized
+        }
+      });
+
+      return NextResponse.json({ registration: serialized, emailStatus });
+    }
+
+    return NextResponse.json({ error: "Registration not found" }, { status: 404 });
+
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });
-    }
-    if ((error as { code?: string }).code === "P2025") {
-      return NextResponse.json({ error: "This registration no longer exists." }, { status: 404 });
     }
     console.error(error);
     return NextResponse.json({ error: "Could not update registration." }, { status: 500 });

@@ -1,6 +1,18 @@
-import type { AdminNote, Registration } from "@prisma/client";
+import type {
+  AdminNote,
+  Registration,
+  IndividualRegistration,
+  IndividualAdminNote,
+  DelegationRegistration,
+  DelegationAdminNote,
+  DelegationDelegate,
+  DelegateAdminNote
+} from "@prisma/client";
 
 export type RegistrationWithNotes = Registration & { notes?: AdminNote[] };
+export type IndividualRegistrationWithNotes = IndividualRegistration & { notes?: IndividualAdminNote[] };
+export type DelegationRegistrationWithNotes = DelegationRegistration & { notes?: DelegationAdminNote[] };
+export type DelegationDelegateWithNotes = DelegationDelegate & { notes?: DelegateAdminNote[] };
 
 export function calculateRegistrationAmount(
   registrationType: string,
@@ -35,6 +47,42 @@ export function serializeRegistration(registration: RegistrationWithNotes) {
     createdAt: registration.createdAt.toISOString(),
     updatedAt: registration.updatedAt.toISOString(),
     notes: registration.notes?.map((note) => ({
+      ...note,
+      createdAt: note.createdAt.toISOString()
+    }))
+  };
+}
+
+export function serializeIndividualRegistration(registration: IndividualRegistrationWithNotes) {
+  return {
+    ...registration,
+    createdAt: registration.createdAt.toISOString(),
+    updatedAt: registration.updatedAt.toISOString(),
+    notes: registration.notes?.map((note) => ({
+      ...note,
+      createdAt: note.createdAt.toISOString()
+    }))
+  };
+}
+
+export function serializeDelegationRegistration(delegation: DelegationRegistrationWithNotes) {
+  return {
+    ...delegation,
+    createdAt: delegation.createdAt.toISOString(),
+    updatedAt: delegation.updatedAt.toISOString(),
+    notes: delegation.notes?.map((note) => ({
+      ...note,
+      createdAt: note.createdAt.toISOString()
+    }))
+  };
+}
+
+export function serializeDelegationDelegate(delegate: DelegationDelegateWithNotes) {
+  return {
+    ...delegate,
+    createdAt: delegate.createdAt.toISOString(),
+    updatedAt: delegate.updatedAt.toISOString(),
+    notes: delegate.notes?.map((note) => ({
       ...note,
       createdAt: note.createdAt.toISOString()
     }))
