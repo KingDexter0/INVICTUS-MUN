@@ -3,6 +3,7 @@ import { assertAdmin } from "../../../../lib/admin";
 import { sendRegistrationEmail } from "../../../../lib/email";
 import { prisma } from "../../../../lib/prisma";
 import { serializeRegistration } from "../../../../lib/registrations";
+import { operationsEmitter } from "../../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         ]
       })).status;
     }
+
+    operationsEmitter.emit("update", {
+      type: "delegate:updated",
+      data: {
+        publicId: params.id,
+        updatedFields: patch,
+        registration: serializeRegistration(registration)
+      }
+    });
 
     return NextResponse.json({ registration: serializeRegistration(registration), emailStatus });
   } catch (error) {

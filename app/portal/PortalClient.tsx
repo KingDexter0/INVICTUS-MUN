@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { useRealtimeAdminOperations } from "./useRealtimeAdminOperations";
 
 type Note = {
   id: string;
@@ -226,6 +227,58 @@ export function PortalClient() {
   const [deletingEbId, setDeletingEbId] = useState("");
   const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
   const [announcement, setAnnouncement] = useState({ title: "", audience: "All registered delegates", message: "" });
+
+  async function triggerPollRefresh() {
+    if (!isUnlocked) return;
+    try {
+      await Promise.all([
+        loadRegistrations(),
+        loadResources(),
+        loadAnnouncements(),
+        loadAnalytics(),
+        loadAdminCertificates(),
+        loadAdminUsers(),
+        loadEbProfiles(),
+        loadTestimonials()
+      ]);
+    } catch (err) {
+      console.error("Error polling for updates:", err);
+    }
+  }
+
+  function handleDelegateUpdated(data: { publicId: string; updatedFields: Partial<Registration>; registration: Registration }) {
+    setRegistrations(prev => prev.map(reg => reg.publicId === data.publicId ? { ...reg, ...data.updatedFields } : reg));
+    setActive(prev => prev && prev.publicId === data.publicId ? { ...prev, ...data.updatedFields } : prev);
+    void loadAnalytics();
+    void loadAdminCertificates();
+  }
+
+  function handleDelegateCheckedIn(data: { publicId: string; checkedInAt: string; checkedInBy: string; registration: Registration }) {
+    setRegistrations(prev => prev.map(reg => reg.publicId === data.publicId ? { ...reg, checkedIn: true, checkedInAt: data.checkedInAt, checkedInBy: data.checkedInBy } : reg));
+    setActive(prev => prev && prev.publicId === data.publicId ? { ...prev, checkedIn: true, checkedInAt: data.checkedInAt, checkedInBy: data.checkedInBy } : prev);
+    void loadAnalytics();
+    void loadAdminCertificates();
+  }
+
+  function handleCertificateUpdated(data: { publicId: string; certificateReleased: boolean; certificateUrl: string }) {
+    setRegistrations(prev => prev.map(reg => reg.publicId === data.publicId ? { ...reg, certificateReleased: data.certificateReleased, certificateUrl: data.certificateUrl } : reg));
+    setActive(prev => prev && prev.publicId === data.publicId ? { ...prev, certificateReleased: data.certificateReleased, certificateUrl: data.certificateUrl } : prev);
+    void loadAnalytics();
+    void loadAdminCertificates();
+  }
+
+  function handleRefreshNeeded(data: { reason: string }) {
+    void triggerPollRefresh();
+  }
+
+  const { status: realtimeStatus } = useRealtimeAdminOperations({
+    isUnlocked,
+    onDelegateUpdated: handleDelegateUpdated,
+    onDelegateCheckedIn: handleDelegateCheckedIn,
+    onCertificateUpdated: handleCertificateUpdated,
+    onRefreshNeeded: handleRefreshNeeded,
+    triggerPollRefresh
+  });
 
   async function unlockWithAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1051,7 +1104,26 @@ export function PortalClient() {
         <header className="topbar">
           <button className="mobile-menu" aria-label="Open menu">Menu</button>
           <div className="search-box"><span>Search</span><input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search delegates, committees, transactions..." /><kbd>Ctrl K</kbd></div>
-          <div className="top-actions"><div className="event-switcher"><span className="event-dot"></span><span><small>ACTIVE EVENT</small><strong>Invictus MUN 2026</strong></span></div></div>
+          <div className="top-actions">
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginRight: "16px" }}>
+              <span style={{
+                display: "inline-block",
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: realtimeStatus === "connected" ? "#10b981" : realtimeStatus === "connecting" ? "#f59e0b" : "#ef4444",
+                boxShadow: realtimeStatus === "connected" ? "0 0 8px #10b981" : "none"
+              }}></span>
+              <span style={{ fontSize: "12px", fontWeight: "600", color: "#706b7e" }}>
+                {realtimeStatus === "connected" 
+                  ? "Live updates on" 
+                  : realtimeStatus === "connecting" 
+                    ? "Connecting live updates..." 
+                    : "Live updates offline (polling fallback)"}
+              </span>
+            </div>
+            <div className="event-switcher"><span className="event-dot"></span><span><small>ACTIVE EVENT</small><strong>Invictus MUN 2026</strong></span></div>
+          </div>
         </header>
 
         <section className="content" id="overview">

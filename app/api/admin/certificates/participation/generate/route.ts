@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../../../lib/admin";
 import { prisma } from "../../../../../../lib/prisma";
+import { operationsEmitter } from "../../../../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,13 @@ export async function POST() {
         console.error(`Failed to generate certificate for ${reg.publicId}:`, error);
         errors.push(`Registration ${reg.publicId}: ${(error as Error).message}`);
       }
+    }
+
+    if (created.length > 0) {
+      operationsEmitter.emit("update", {
+        type: "operations:refresh-needed",
+        data: { reason: "bulk-certificates-generated" }
+      });
     }
 
     return NextResponse.json({

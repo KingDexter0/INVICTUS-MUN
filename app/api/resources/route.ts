@@ -3,6 +3,7 @@ import { assertAdmin } from "../../../lib/admin";
 import { uploadResourceImageFile } from "../../../lib/cloudinary";
 import { sendResourceEmail } from "../../../lib/email";
 import { prisma } from "../../../lib/prisma";
+import { operationsEmitter } from "../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,11 @@ export async function POST(request: Request) {
         })
       )
     );
+
+    operationsEmitter.emit("update", {
+      type: "operations:refresh-needed",
+      data: { reason: "resource-uploaded" }
+    });
 
     return NextResponse.json({ resource: serializeResource(resource) });
   } catch (error) {

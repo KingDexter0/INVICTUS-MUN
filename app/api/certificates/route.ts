@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../lib/admin";
 import { prisma } from "../../../lib/prisma";
+import { operationsEmitter } from "../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -58,11 +59,20 @@ export async function POST(request: Request) {
     });
 
     // Update registration audit fields
-    await prisma.registration.update({
+    const updatedRegistration = await prisma.registration.update({
       where: { id: registration.id },
       data: {
         certificateReleased: true,
         certificateReleasedAt: new Date(),
+        certificateUrl: `/certificates/${certificate.certificateNo}`
+      }
+    });
+
+    operationsEmitter.emit("update", {
+      type: "certificate:updated",
+      data: {
+        publicId: registration.publicId,
+        certificateReleased: true,
         certificateUrl: `/certificates/${certificate.certificateNo}`
       }
     });

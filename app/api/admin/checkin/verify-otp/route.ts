@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { assertAdmin, getAdminEmailFromToken } from "../../../../../lib/admin";
 import { prisma } from "../../../../../lib/prisma";
 import { serializeRegistration } from "../../../../../lib/registrations";
+import { operationsEmitter } from "../../../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,16 @@ export async function POST(request: Request) {
 
     // Requirement 18: Log who completed the check-in
     console.log(`[CHECK-IN OTP VERIFIED] Delegate ${cleanDelegateId} checked in successfully by admin: ${checkedInBy}`);
+
+    operationsEmitter.emit("update", {
+      type: "delegate:checked-in",
+      data: {
+        publicId: cleanDelegateId,
+        checkedInAt: updatedDelegate.checkedInAt?.toISOString() || null,
+        checkedInBy,
+        registration: serializeRegistration(updatedDelegate)
+      }
+    });
 
     return NextResponse.json({
       success: true,

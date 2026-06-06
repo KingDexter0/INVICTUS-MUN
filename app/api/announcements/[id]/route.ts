@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../lib/admin";
 import { prisma } from "../../../../lib/prisma";
+import { operationsEmitter } from "../../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,11 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
     await prisma.announcement.delete({
       where: { id: params.id }
+    });
+
+    operationsEmitter.emit("update", {
+      type: "operations:refresh-needed",
+      data: { reason: "announcement-deleted" }
     });
 
     return NextResponse.json({ ok: true });

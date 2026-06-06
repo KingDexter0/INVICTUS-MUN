@@ -6,6 +6,7 @@ import { prisma } from "../../../../../../lib/prisma";
 import { serializeRegistration } from "../../../../../../lib/registrations";
 import { getAdminEmailFromToken } from "../../../../../../lib/admin";
 import { sendCheckInOtpEmail } from "../../../../../../lib/email";
+import { operationsEmitter } from "../../../../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -197,6 +198,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
       });
 
       console.log(`[CHECK-IN OTP VERIFIED] Delegate ${params.id} checked in successfully by admin: ${checkedInBy}`);
+
+      operationsEmitter.emit("update", {
+        type: "delegate:checked-in",
+        data: {
+          publicId: params.id,
+          checkedInAt: updated.checkedInAt?.toISOString() || null,
+          checkedInBy,
+          registration: serializeRegistration(updated)
+        }
+      });
 
       return NextResponse.json({
         success: true,

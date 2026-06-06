@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../lib/admin";
 import { prisma } from "../../../lib/prisma";
+import { operationsEmitter } from "../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,11 @@ export async function POST(request: Request) {
         audience,
         message
       }
+    });
+
+    operationsEmitter.emit("update", {
+      type: "operations:refresh-needed",
+      data: { reason: "announcement-created" }
     });
 
     return NextResponse.json({ announcement: { ...announcement, createdAt: announcement.createdAt.toISOString() } });

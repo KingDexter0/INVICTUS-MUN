@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../lib/admin";
 import { deleteCloudinaryFile } from "../../../../lib/cloudinary";
 import { prisma } from "../../../../lib/prisma";
+import { operationsEmitter } from "../../../../lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,11 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
         console.error("Could not delete Cloudinary resource", error);
       });
     }
+
+    operationsEmitter.emit("update", {
+      type: "operations:refresh-needed",
+      data: { reason: "resource-deleted" }
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
