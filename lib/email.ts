@@ -182,8 +182,7 @@ export async function sendOtpEmail(to: string, otp: string) {
         </div>
       </div>
     `,
-    "Check-In OTP",
-    true
+    "Check-In OTP"
   );
 }
 
@@ -221,8 +220,7 @@ export async function sendCheckInOtpEmail(
         </div>
       </div>
     `,
-    "Delegate Check-In OTP",
-    true
+    "Delegate Check-In OTP"
   );
 }
 
