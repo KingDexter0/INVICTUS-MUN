@@ -23,7 +23,7 @@ export function SiteHeader({ cta = "DELEGATE LOGIN", ctaHref = "/delegate/login"
         <Link href="/committees">COMMITTEES</Link>
         <Link href="/executive-board">EXECUTIVE BOARD</Link>
         <Link href="/registration">REGISTRATION</Link>
-        <Link href="/dashboard#resources">RESOURCES</Link>
+        <Link href="/resources">RESOURCES</Link>
         <Link href="/#contact">CONTACT</Link>
       </nav>
       <Link className="nav-cta" href={ctaHref}>
@@ -51,7 +51,7 @@ export function SiteFooter() {
         <Link href="/committees">Committees</Link>
         <Link href="/executive-board">Executive Board</Link>
         <Link href="/registration">Registration</Link>
-        <Link href="/dashboard#resources">Resources</Link>
+        <Link href="/resources">Resources</Link>
         <Link href="/delegate/login">Delegate Login</Link>
         <Link href="/#policies">Policies</Link>
         <Link href="/#contact">Contact</Link>

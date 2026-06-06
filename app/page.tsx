@@ -95,7 +95,7 @@ export default async function HomePage() {
             <div className="hero-actions">
               <Link className="button primary" href="/registration">Register Now</Link>
               <Link className="button secondary" href="/committees">Explore Committees</Link>
-              <Link className="button ghost" href="/dashboard#resources">Access Resources</Link>
+              <Link className="button ghost" href="/resources">Access Resources</Link>
               <Link className="button ghost" href="/delegate/login">Delegate Login</Link>
             </div>
           </div>
@@ -267,7 +267,7 @@ export default async function HomePage() {
               <h3>Study guides, schedules, ROPs, and delegate files.</h3>
               <p>Files published from the admin portal appear in the resources area, so delegates always see the latest released material.</p>
               <div className="resource-link-grid">
-                <Link className="button primary" href="/dashboard#resources">View Published Resources</Link>
+                <Link className="button primary" href="/resources">View Published Resources</Link>
                 <Link className="button secondary" href="/delegate/login">Delegate Login</Link>
               </div>
             </article>
@@ -281,7 +281,7 @@ export default async function HomePage() {
             <p>If you want a conference that feels legitimate - this is it.</p>
             <div className="hero-actions">
               <Link className="button primary" href="/registration">Register Now</Link>
-              <Link className="button secondary" href="/dashboard#resources">View Resources</Link>
+              <Link className="button secondary" href="/resources">View Resources</Link>
             </div>
           </div>
         </section>

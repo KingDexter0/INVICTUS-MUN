@@ -197,6 +197,39 @@ h1, h2 { font-family: "Playfair Display", serif; line-height: 1.03; letter-spaci
 .subpage-hero { padding: 84px clamp(18px, 5vw, 70px) 42px; background: linear-gradient(180deg, #fff, #fbf9ff); }
 .subpage-hero h1 { max-width: 900px; margin-bottom: 18px; font-size: clamp(42px, 6vw, 72px); }
 .subpage-hero p { max-width: 760px; color: var(--muted); font-size: 18px; line-height: 1.7; }
+.page-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(88px, 11vw, 140px) clamp(18px, 5vw, 70px) clamp(60px, 8vw, 96px);
+  color: #fff;
+}
+.page-hero .section-shell { position: relative; z-index: 1; }
+.page-hero h1 {
+  max-width: 920px;
+  margin: 0 0 18px;
+  color: #fff;
+  font-size: clamp(44px, 7vw, 84px);
+}
+.page-hero p:not(.section-kicker) {
+  max-width: 740px;
+  color: rgba(255,255,255,.78);
+  font-size: 18px;
+  line-height: 1.75;
+}
+.resource-page-hero {
+  background:
+    radial-gradient(circle at 84% 14%, rgba(126,87,255,.42), transparent 28%),
+    linear-gradient(90deg, rgba(8,2,18,.96), rgba(28,10,58,.88) 48%, rgba(28,10,58,.42)),
+    linear-gradient(0deg, rgba(8,2,18,.78), rgba(8,2,18,.08)),
+    url("/local-media/gallery/background-1.jpeg") center / cover no-repeat;
+}
+.resource-page-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.07), transparent 34%);
+  pointer-events: none;
+}
 .committee-directory { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-top: 24px; }
 .committee-poster { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 18px; background: #050008; }
 .directory-card h2 { margin: 24px 0 12px; font-size: 28px; }
@@ -659,6 +692,82 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   gap: 12px;
   margin-top: 24px;
 }
+.public-resources-section {
+  background: linear-gradient(180deg, #fff, #fbf9ff 62%, #fff);
+}
+.public-resource-groups {
+  display: grid;
+  gap: 42px;
+}
+.public-resource-group {
+  display: grid;
+  gap: 18px;
+}
+.section-head.compact {
+  margin-bottom: 0;
+  align-items: end;
+}
+.resource-count {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.public-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.public-resource-card {
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+  border: 1px solid rgba(108,77,180,.16);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(250,247,255,.94)),
+    radial-gradient(circle at 20% 0%, rgba(109,67,200,.14), transparent 34%);
+  box-shadow: 0 20px 50px rgba(40,22,82,.08);
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.public-resource-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(109,67,200,.34);
+  box-shadow: 0 28px 70px rgba(63,34,126,.14);
+}
+.public-resource-card h3 {
+  margin: 14px 0 10px;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1.18;
+}
+.public-resource-card p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+.public-resource-meta {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.button.small {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 13px;
+  font-size: 12px;
+}
+.public-resource-empty {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+}
 .final-cta {
   position: relative;
   isolation: isolate;
@@ -814,6 +923,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 1050px) {
   .snapshot-grid, .committee-preview-grid, .eb-highlight-grid { grid-template-columns: repeat(2, 1fr); }
   .differentiator-grid, .edition-grid, .philosophy-layout, .resource-cta-grid { grid-template-columns: 1fr; }
+  .public-resource-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .status-timeline { grid-template-columns: repeat(3, 1fr); }
   .site-footer { grid-template-columns: 1fr; }
 }
@@ -866,6 +976,18 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .hero-scroll-cue { display: none; }
   .hero-actions .button { width: 100%; justify-content: center; }
   .snapshot-grid, .differentiator-grid, .edition-grid, .committee-preview-grid, .eb-highlight-grid, .resource-cta-grid, .status-timeline { grid-template-columns: 1fr; }
+  .page-hero { padding: 92px 22px 66px; }
+  .resource-page-hero {
+    background:
+      radial-gradient(circle at 78% 10%, rgba(126,87,255,.22), transparent 34%),
+      linear-gradient(90deg, rgba(8,2,18,.98), rgba(13,5,29,.9)),
+      linear-gradient(0deg, rgba(8,2,18,.86), rgba(8,2,18,.28)),
+      url("/local-media/gallery/background-1.jpeg") 55% center / cover no-repeat;
+  }
+  .public-resource-grid { grid-template-columns: 1fr; }
+  .section-head.compact { gap: 10px; }
+  .public-resource-meta { align-items: stretch; flex-direction: column; }
+  .public-resource-meta .button { width: 100%; justify-content: center; }
   .resource-link-grid .button { width: 100%; justify-content: center; }
   .philosophy-quote { padding-left: 18px; font-size: 30px; }
   .feature-bg { opacity: .42; }

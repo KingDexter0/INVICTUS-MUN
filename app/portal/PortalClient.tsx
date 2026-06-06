@@ -1007,7 +1007,7 @@ export function PortalClient() {
                       <strong>{resource.title}</strong>
                       <small>{resource.category} - {resource.accessLevel}</small>
                       {resource.description ? <p>{resource.description}</p> : null}
-                      <a href={resource.fileUrl} target="_blank" rel="noopener noreferrer">Open file</a>
+                      <a href={`/api/resources/${resource.id}/download`}>Download file</a>
                     </div>
                     <button className="row-action" type="button" disabled={deletingResourceId === resource.id} onClick={() => deleteResource(resource)}>
                       {deletingResourceId === resource.id ? "Deleting..." : "Delete"}

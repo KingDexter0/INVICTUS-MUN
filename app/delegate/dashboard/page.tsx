@@ -130,7 +130,7 @@ export default async function DelegateDashboardPage() {
               <div className="resource-list compact">
                 {visibleResources.length ? visibleResources.map((resource) => (
                   isSafeExternalUrl(resource.fileUrl) ? (
-                  <a key={resource.id} href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
+                  <a key={resource.id} href={`/api/resources/${resource.id}/download`}>
                     <strong>{resource.title}</strong>
                     <span>{resource.category} - {resource.accessLevel}</span>
                   </a>
