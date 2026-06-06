@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../lib/admin";
 import { uploadResourceImageFile } from "../../../lib/cloudinary";
-import { sendResourceEmail } from "../../../lib/email";
+import { sendResourceEmail } from "../../../lib/mail";
 import { prisma } from "../../../lib/prisma";
 import { operationsEmitter } from "../../../lib/events";
 

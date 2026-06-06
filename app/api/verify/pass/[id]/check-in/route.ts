@@ -5,7 +5,7 @@ import { assertCheckInAccess } from "../../../../../../lib/checkin";
 import { prisma } from "../../../../../../lib/prisma";
 import { serializeRegistration } from "../../../../../../lib/registrations";
 import { getAdminEmailFromToken } from "../../../../../../lib/admin";
-import { sendCheckInOtpEmail } from "../../../../../../lib/email";
+import { sendCheckInOtpEmail } from "../../../../../../lib/mail";
 import { operationsEmitter } from "../../../../../../lib/events";
 
 export const dynamic = "force-dynamic";

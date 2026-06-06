@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { assertAdmin } from "../../../lib/admin";
-import { sendRegistrationEmail } from "../../../lib/email";
+import { sendRegistrationEmail } from "../../../lib/mail";
 import { prisma } from "../../../lib/prisma";
 import { uploadPaymentProof } from "../../../lib/cloudinary";
 import {

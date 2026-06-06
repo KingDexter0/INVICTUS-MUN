@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 
@@ -20,32 +20,44 @@ async function main() {
     process.exit(1);
   }
 
-  // Load environment variables manually if needed (prisma might already load them, but let's be sure)
-  let apiKey = process.env.RESEND_API_KEY;
-  let fromEmail = process.env.FROM_EMAIL;
+  // Load environment variables manually
+  let host = process.env.SMTP_HOST;
+  let port = Number(process.env.SMTP_PORT || 587);
+  let secure = process.env.SMTP_SECURE === "true";
+  let user = process.env.SMTP_USER;
+  let pass = process.env.SMTP_PASS;
+  let fromEmail = process.env.SMTP_FROM || user;
   let siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:3000";
 
-  if (!apiKey || !fromEmail) {
-    // Read from .env file directly
-    try {
-      const envPath = path.join(__dirname, '..', '.env');
-      if (fs.existsSync(envPath)) {
-        const envContent = fs.readFileSync(envPath, 'utf8');
-        apiKey = apiKey || envContent.match(/RESEND_API_KEY="([^"]+)"/)?.[1];
-        fromEmail = fromEmail || envContent.match(/FROM_EMAIL="([^"]+)"/)?.[1];
-        siteUrl = siteUrl || envContent.match(/NEXT_PUBLIC_SITE_URL="([^"]+)"/)?.[1];
-      }
-    } catch (err) {
-      console.warn("Could not read .env file:", err.message);
+  // Read from .env file directly
+  try {
+    const envPath = path.join(__dirname, '..', '.env');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      host = host || envContent.match(/SMTP_HOST="?([^"\n\r]+)"?/)?.[1];
+      const portStr = envContent.match(/SMTP_PORT="?([^"\n\r]+)"?/)?.[1];
+      if (portStr) port = Number(portStr);
+      secure = secure || envContent.match(/SMTP_SECURE="?([^"\n\r]+)"?/)?.[1] === "true";
+      user = user || envContent.match(/SMTP_USER="?([^"\n\r]+)"?/)?.[1];
+      pass = pass || envContent.match(/SMTP_PASS="?([^"\n\r]+)"?/)?.[1];
+      fromEmail = fromEmail || envContent.match(/SMTP_FROM="?([^"\n\r]+)"?/)?.[1];
+      siteUrl = siteUrl || envContent.match(/NEXT_PUBLIC_SITE_URL="?([^"\n\r]+)"?/)?.[1];
     }
+  } catch (err) {
+    console.warn("Could not read .env file:", err.message);
   }
 
-  if (!apiKey || !fromEmail) {
-    console.error("Error: RESEND_API_KEY or FROM_EMAIL environment variable is missing.");
+  if (!host || !user || !pass) {
+    console.error("Error: SMTP_HOST, SMTP_USER, or SMTP_PASS environment variable is missing.");
     process.exit(1);
   }
 
-  const resend = new Resend(apiKey);
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass }
+  });
 
   console.log("Fetching registered individuals and delegates from database...");
   const individuals = await prisma.individualRegistration.findMany();
@@ -166,21 +178,16 @@ async function main() {
 
     try {
       console.log(`[${i + 1}/${recipients.length}] Sending to ${r.name} (${r.email})...`);
-      const { error } = await resend.emails.send({
+      const info = await transporter.sendMail({
         from: fromEmail,
         to: r.email,
         subject: "Invictus MUN 2026: Registration & Allotment Confirmed",
         html: htmlContent
       });
 
-      if (error) {
-        console.error(`  [FAILED] Resend API error:`, error.message);
-        failCount++;
-      } else {
-        sentCount++;
-        sentIds.push(r.publicId);
-        fs.writeFileSync(sentLogPath, JSON.stringify(sentIds, null, 2));
-      }
+      sentCount++;
+      sentIds.push(r.publicId);
+      fs.writeFileSync(sentLogPath, JSON.stringify(sentIds, null, 2));
     } catch (err) {
       console.error(`  [FAILED] Exception:`, err.message);
       failCount++;

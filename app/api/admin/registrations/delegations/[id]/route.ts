@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../../../lib/admin";
-import { sendRegistrationEmail } from "../../../../../../lib/email";
+import { sendRegistrationEmail } from "../../../../../../lib/mail";
 import { prisma } from "../../../../../../lib/prisma";
 import { serializeDelegationRegistration } from "../../../../../../lib/registrations";
 import { operationsEmitter } from "../../../../../../lib/events";

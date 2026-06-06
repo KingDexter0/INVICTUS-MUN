@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../lib/admin";
-import { sendAdminTestEmail } from "../../../../lib/email";
+import { sendAdminTestEmail } from "../../../../lib/mail";
 
 export const dynamic = "force-dynamic";
 

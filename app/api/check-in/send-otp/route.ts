@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import { sendOtpEmail } from "../../../../lib/email";
+import { sendOtpEmail } from "../../../../lib/mail";
 
 import { createHash } from "node:crypto";
 

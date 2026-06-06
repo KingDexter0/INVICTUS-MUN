@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { assertAdmin, getAdminEmailFromToken } from "../../../../../lib/admin";
 import { prisma } from "../../../../../lib/prisma";
-import { sendCheckInOtpEmail } from "../../../../../lib/email";
+import { sendCheckInOtpEmail } from "../../../../../lib/mail";
 
 export const dynamic = "force-dynamic";
 
