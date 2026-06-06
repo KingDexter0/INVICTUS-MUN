@@ -22,10 +22,29 @@ export async function POST(request: Request) {
     const { publicId, title } = await request.json();
     const registration = await prisma.registration.findUnique({ where: { publicId: String(publicId || "").trim() } });
     if (!registration) return NextResponse.json({ error: "Registration not found." }, { status: 404 });
+
+    const certificateTitle = String(title || "Certificate of Participation").trim();
+
+    // Check-in and status verification for Certificate of Participation
+    if (certificateTitle === "Certificate of Participation") {
+      if (!registration.checkedIn || !registration.checkedInAt) {
+        return NextResponse.json({ error: "Delegate has not checked in." }, { status: 400 });
+      }
+      if (registration.registrationStatus !== "Approved") {
+        return NextResponse.json({ error: "Delegate registration is not approved." }, { status: 400 });
+      }
+      if (registration.paymentStatus !== "Verified") {
+        return NextResponse.json({ error: "Delegate payment has not been verified." }, { status: 400 });
+      }
+      if (registration.allotmentStatus !== "Allotted") {
+        return NextResponse.json({ error: "Delegate allotment has not been released." }, { status: 400 });
+      }
+    }
+
     const certificate = await prisma.certificate.create({
       data: {
         registrationId: registration.id,
-        title: String(title || "Certificate of Participation").trim(),
+        title: certificateTitle,
         certificateNo: `CERT-${registration.publicId}-${Date.now().toString(36).toUpperCase()}`
       }
     });

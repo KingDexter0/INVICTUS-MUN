@@ -1010,10 +1010,10 @@ export function PortalClient() {
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Certificate</th><th></th></tr></thead>
+                  <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Check-in</th><th>Certificate</th><th></th></tr></thead>
                   <tbody>
                     {isLoading ? (
-                      <tr><td colSpan={8}><div className="empty-state">Loading registrations...</div></td></tr>
+                      <tr><td colSpan={9}><div className="empty-state">Loading registrations...</div></td></tr>
                     ) : visible.length ? visible.map((registration, index) => (
                       <tr key={registration.publicId}>
                         <td><div className="delegate"><span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span><span><strong>{registration.name}</strong><small>{registration.institution || registration.email}</small></span></div></td>
@@ -1022,6 +1022,11 @@ export function PortalClient() {
                         <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
                         <td><span className={`status ${statusClass(registration.registrationStatus)}`}>{registration.registrationStatus}</span></td>
                         <td><span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span></td>
+                        <td>
+                          <span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>
+                            {registration.checkedIn ? "Checked In" : "Awaiting"}
+                          </span>
+                        </td>
                         <td>
                           {(() => {
                             const hasCert = adminCertificates.some(
@@ -1036,7 +1041,7 @@ export function PortalClient() {
                         </td>
                         <td><button className="row-action" onClick={() => openRegistration(registration)}>Review</button></td>
                       </tr>
-                    )) : <tr><td colSpan={8}><div className="empty-state">{registrations.length ? "No registrations match this view. Clear filters or search again." : "No registrations yet. New delegate submissions will appear here."}</div></td></tr>}
+                    )) : <tr><td colSpan={9}><div className="empty-state">{registrations.length ? "No registrations match this view. Clear filters or search again." : "No registrations yet. New delegate submissions will appear here."}</div></td></tr>}
                   </tbody>
                 </table>
               </div>
