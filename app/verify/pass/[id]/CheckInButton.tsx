@@ -23,12 +23,37 @@ export function CheckInButton({ publicId, initialCheckedIn, initialCheckedInAt }
   const [needsPasscode, setNeedsPasscode] = useState(false);
   const [passcode, setPasscode] = useState("");
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [message, setMessage] = useState(
     initialCheckedIn && initialCheckedInAt ? `Already checked in at ${formatDate(initialCheckedInAt)}.` : ""
   );
   const [messageType, setMessageType] = useState<"success" | "error" | "">(
     initialCheckedIn ? "success" : ""
   );
+
+  async function requestOtp() {
+    setIsRequestingOtp(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/check-in/send-otp", {
+        method: "POST"
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not request OTP.");
+        setMessageType("error");
+        return;
+      }
+      setMessage("A 6-digit OTP has been sent to all admins. Check admin email to unlock.");
+      setMessageType("success");
+    } catch {
+      setMessage("Could not connect to the OTP server.");
+      setMessageType("error");
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  }
 
   async function checkIn() {
     setIsSaving(true);
@@ -69,7 +94,7 @@ export function CheckInButton({ publicId, initialCheckedIn, initialCheckedInAt }
   async function unlockCheckIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!passcode.trim()) {
-      setMessage("Enter the check-in passcode.");
+      setMessage("Enter the check-in passcode or OTP.");
       setMessageType("error");
       return;
     }
@@ -87,7 +112,7 @@ export function CheckInButton({ publicId, initialCheckedIn, initialCheckedInAt }
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setMessage(payload.error || "Invalid check-in passcode.");
+        setMessage(payload.error || "Invalid check-in passcode or OTP.");
         setMessageType("error");
         return;
       }
@@ -107,21 +132,27 @@ export function CheckInButton({ publicId, initialCheckedIn, initialCheckedInAt }
   return (
     <div className="checkin-actions">
       {needsPasscode ? (
-        <form className="checkin-passcode" onSubmit={unlockCheckIn}>
+        <form className="checkin-passcode" onSubmit={unlockCheckIn} style={{ marginBottom: "15px" }}>
           <label>
-            Limited check-in passcode
-            <input value={passcode} onChange={(event) => setPasscode(event.target.value)} type="password" placeholder="Enter staff passcode" autoComplete="current-password" />
+            Limited check-in passcode or OTP
+            <input value={passcode} onChange={(event) => setPasscode(event.target.value)} type="password" placeholder="Enter staff passcode or 6-digit OTP" autoComplete="off" />
           </label>
-          <button className="button secondary" type="submit" disabled={isUnlocking}>
-            {isUnlocking ? "Unlocking..." : "Unlock Check-In"}
-          </button>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <button className="button primary" type="submit" style={{ flex: 1, padding: "8px" }} disabled={isUnlocking}>
+              {isUnlocking ? "Unlocking..." : "Unlock Check-In"}
+            </button>
+            <button className="button secondary" type="button" style={{ flex: 1, padding: "8px" }} onClick={requestOtp} disabled={isRequestingOtp}>
+              {isRequestingOtp ? "Sending..." : "Request OTP"}
+            </button>
+          </div>
         </form>
       ) : null}
       <button className="button primary" type="button" onClick={checkIn} disabled={isCheckedIn || isSaving}>
         {isSaving ? "Checking in..." : isCheckedIn ? "Already Checked In" : "Check In Delegate"}
       </button>
-      {checkedInAt ? <small>Checked in: {formatDate(checkedInAt)}</small> : null}
-      {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
+      {checkedInAt ? <small style={{ display: "block", marginTop: "8px" }}>Checked in: {formatDate(checkedInAt)}</small> : null}
+      {message ? <p className={`form-message ${messageType}`} role="status" style={{ marginTop: "10px" }}>{message}</p> : null}
     </div>
   );
 }
+

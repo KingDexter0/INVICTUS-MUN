@@ -1,24 +1,49 @@
 import { NextResponse } from "next/server";
 import { createCheckInToken, setCheckInCookie } from "../../../../lib/checkin";
+import { prisma } from "../../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
     const { passcode } = await request.json();
-    const expected = process.env.CHECKIN_PASSCODE;
 
-    if (!expected) {
-      return NextResponse.json({ error: "Check-in passcode is not configured." }, { status: 503 });
+    if (!passcode) {
+      return NextResponse.json({ error: "Enter the check-in passcode or OTP." }, { status: 400 });
     }
 
-    if (!passcode || passcode !== expected) {
-      return NextResponse.json({ error: "Invalid check-in passcode." }, { status: 401 });
+    // 1. Check if it's the static passcode (if configured)
+    const expectedPasscode = process.env.CHECKIN_PASSCODE;
+    const isStaticPasscodeValid = expectedPasscode && passcode === expectedPasscode;
+
+    // 2. Check if it's a valid database OTP
+    let isOtpValid = false;
+    if (!isStaticPasscodeValid) {
+      const activeOtp = await prisma.checkInOtp.findFirst({
+        where: {
+          otp: passcode,
+          expiresAt: { gt: new Date() }
+        }
+      });
+
+      if (activeOtp) {
+        isOtpValid = true;
+        // Invalidate/delete the used OTP code
+        await prisma.checkInOtp.delete({
+          where: { id: activeOtp.id }
+        }).catch(() => null);
+      }
+    }
+
+    if (!isStaticPasscodeValid && !isOtpValid) {
+      return NextResponse.json({ error: "Invalid or expired check-in passcode/OTP." }, { status: 401 });
     }
 
     setCheckInCookie(createCheckInToken());
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("Check-in session error:", error);
     return NextResponse.json({ error: "Could not start check-in session." }, { status: 500 });
   }
 }
+

@@ -160,3 +160,29 @@ export async function sendAdminTestEmail(to: string) {
     "Admin test email"
   );
 }
+
+export async function sendOtpEmail(to: string, otp: string) {
+  return sendEmail(
+    to,
+    "Invictus MUN: Check-In OTP",
+    `
+      <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#181424">
+        <div style="max-width:620px;margin:0 auto;padding:28px">
+          <div style="border-left:5px solid #6d43c8;padding-left:16px;margin-bottom:24px">
+            <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
+            <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">Check-In Verification OTP</h1>
+          </div>
+          <p style="font-size:16px;line-height:1.7">A request was made to unlock delegate check-in access.</p>
+          <div style="margin:20px 0;padding:24px;border:1px solid #e9e5f0;border-radius:14px;background:#fbf9ff;text-align:center">
+            <p style="margin:0;color:#706b7e;font-size:14px;text-transform:uppercase;letter-spacing:.05em">Your OTP is</p>
+            <h2 style="margin:10px 0 0;font-size:36px;color:#6d43c8;letter-spacing:4px;font-weight:bold">${otp}</h2>
+            <p style="margin:15px 0 0;color:#e63946;font-size:13px">This code expires in 10 minutes.</p>
+          </div>
+          <p style="margin-top:24px;color:#706b7e;font-size:13px;line-height:1.6">If you did not initiate this request, you can safely ignore this email.</p>
+        </div>
+      </div>
+    `,
+    "Check-In OTP"
+  );
+}
+

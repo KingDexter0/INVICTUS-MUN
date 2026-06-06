@@ -223,3 +223,11 @@ model AdminNote {
 
   @@index([registrationId])
 }
+
+model CheckInOtp {
+  id        String   @id @default(cuid())
+  otp       String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
