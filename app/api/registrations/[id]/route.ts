@@ -74,7 +74,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         name: registration.name,
         publicId: registration.publicId,
         heading: "Payment needs attention",
-        action: "Your payment could not be verified. Please contact the organizing team or complete the Razorpay payment from your dashboard.",
+        action: "Your payment could not be verified. Please contact the organizing team with your transaction screenshot.",
         dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
         details: [
           ["Payment status", registration.paymentStatus],

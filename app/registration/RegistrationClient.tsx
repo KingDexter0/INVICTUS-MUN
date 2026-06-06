@@ -101,6 +101,12 @@ export function RegistrationClient() {
       }
       if (!delegatesText) errors.push("Enter the names of delegates.");
     }
+    const screenshotFile = formData.get("paymentScreenshot") as File | null;
+    if (screenshotFile && screenshotFile.size > 0) {
+      if (!screenshotFile.type.startsWith("image/")) {
+        errors.push("Payment proof must be a valid image screenshot (PNG, JPG, WEBP, etc.). PDFs are not accepted.");
+      }
+    }
     return errors;
   }
 
@@ -258,8 +264,16 @@ export function RegistrationClient() {
                   </small>
                 </div>
               </div>
+              <div className="wide" style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "20px 0", padding: "20px", background: "white", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)" }}>
+                <h4 style={{ fontWeight: "bold", color: "var(--purple)", marginBottom: "12px", textAlign: "center" }}>Scan QR Code to Pay via UPI</h4>
+                <img src="/payment-qr.png" alt="UPI Payment QR" style={{ maxWidth: "220px", width: "100%", borderRadius: "8px", border: "1px solid #eee", padding: "10px", background: "#fdfdfd" }} />
+                <p style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "12px", textAlign: "center", lineHeight: "1.4" }}>
+                  Scan the QR code above using GPay, PhonePe, Paytm, or any UPI app to transfer <strong>₹{individualPrice.toLocaleString("en-IN")}</strong>.<br />
+                  Once payment is complete, take a screenshot of the successful transaction page and upload it below.
+                </p>
+              </div>
               <label className="wide">Payment Screenshot Upload (UPI / Bank Transfer)
-                <input required type="file" name="paymentScreenshot" accept="image/*,application/pdf" style={{ marginTop: "10px" }} />
+                <input required type="file" name="paymentScreenshot" accept="image/*" style={{ marginTop: "10px" }} />
               </label>
             </fieldset>
           </>
@@ -342,8 +356,18 @@ export function RegistrationClient() {
                   )}
                 </div>
               </div>
+              {delegatesCount >= 10 && (
+                <div className="wide" style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "20px 0", padding: "20px", background: "white", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)" }}>
+                  <h4 style={{ fontWeight: "bold", color: "var(--purple)", marginBottom: "12px", textAlign: "center" }}>Scan QR Code to Pay via UPI</h4>
+                  <img src="/payment-qr.png" alt="UPI Payment QR" style={{ maxWidth: "220px", width: "100%", borderRadius: "8px", border: "1px solid #eee", padding: "10px", background: "#fdfdfd" }} />
+                  <p style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "12px", textAlign: "center", lineHeight: "1.4" }}>
+                    Scan the QR code above using GPay, PhonePe, Paytm, or any UPI app to transfer <strong>₹{delegationTotalPrice.toLocaleString("en-IN")}</strong>.<br />
+                    Once payment is complete, take a screenshot of the successful transaction page and upload it below.
+                  </p>
+                </div>
+              )}
               <label className="wide">Payment Screenshot Upload (UPI / Bank Transfer)
-                <input required type="file" name="paymentScreenshot" accept="image/*,application/pdf" style={{ marginTop: "10px" }} />
+                <input required type="file" name="paymentScreenshot" accept="image/*" style={{ marginTop: "10px" }} disabled={delegatesCount < 10} />
               </label>
             </fieldset>
           </>

@@ -1561,7 +1561,7 @@ export function PortalClient() {
                       Open Legacy Proof
                     </a>
                   ) : (
-                    "Razorpay online payment"
+                    "No payment proof uploaded"
                   )}
                 </span>
               </div>

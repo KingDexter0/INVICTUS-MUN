@@ -106,6 +106,12 @@ export async function POST(request: Request) {
     let screenshotUrl = null;
     let screenshotPublicId = null;
     if (screenshotFile && screenshotFile.size > 0) {
+      if (!screenshotFile.type.startsWith("image/")) {
+        return NextResponse.json(
+          { error: "Payment proof must be a valid image screenshot (PNG, JPG, WEBP, etc.). PDFs are no longer accepted." },
+          { status: 400 }
+        );
+      }
       const uploadResult = await uploadPaymentProof(screenshotFile).catch(err => {
         console.error("Cloudinary upload error:", err);
         return null;

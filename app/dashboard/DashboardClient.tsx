@@ -42,12 +42,6 @@ type Registration = {
   allottedPortfolio?: string | null;
 };
 
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
 export function DashboardClient() {
   const searchParams = useSearchParams();
   const [lookup, setLookup] = useState(searchParams.get("id") || "");
@@ -57,7 +51,6 @@ export function DashboardClient() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
 
   async function loadRegistration(query = lookup) {
     const trimmed = query.trim();
@@ -127,66 +120,6 @@ export function DashboardClient() {
     return true;
   });
 
-  async function payOnline() {
-    if (!registration) return;
-    setIsPaying(true);
-    setMessage("");
-    setMessageType("");
-    try {
-      if (!window.Razorpay) {
-        await new Promise<void>((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://checkout.razorpay.com/v1/checkout.js";
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error("Could not load Razorpay checkout."));
-          document.body.appendChild(script);
-        });
-      }
-      const orderResponse = await fetch("/api/payments/razorpay/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publicId: registration.publicId })
-      });
-      const order = await orderResponse.json();
-      if (!orderResponse.ok) {
-        setMessage(order.error || "Could not create online payment order.");
-        setMessageType("error");
-        return;
-      }
-      const checkout = new window.Razorpay!({
-        key: order.keyId,
-        amount: order.amount * 100,
-        currency: order.currency,
-        name: "Invictus MUN",
-        description: `Registration ${registration.publicId}`,
-        order_id: order.orderId,
-        prefill: { name: registration.name, email: registration.email, contact: registration.phone },
-        handler: async (payment: Record<string, string>) => {
-          const verifyResponse = await fetch("/api/payments/razorpay/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payment)
-          });
-          const payload = await verifyResponse.json();
-          if (!verifyResponse.ok) {
-            setMessage(payload.error || "Payment could not be verified.");
-            setMessageType("error");
-            return;
-          }
-          setMessage("Payment verified successfully. Refreshing status...");
-          setMessageType("success");
-          await loadRegistration(registration.publicId);
-        }
-      });
-      checkout.open();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not open Razorpay checkout.");
-      setMessageType("error");
-    } finally {
-      setIsPaying(false);
-    }
-  }
-
   return (
     <section className="section delegate-dashboard">
       <form
@@ -219,10 +152,11 @@ export function DashboardClient() {
             <article><span>QR Pass</span><strong>{hasAllotment ? "Ready" : "Locked"}</strong></article>
           </div>
           {canPayOnline ? (
-            <div className="empty-panel payment-action-panel">
-              <h2>Online payment</h2>
-              <p>Pay securely with Razorpay when the payment gateway is configured.</p>
-              <button className="button primary" type="button" onClick={payOnline} disabled={isPaying}>{isPaying ? "Opening Razorpay..." : `Pay INR ${Number(registration.amount || 0).toLocaleString("en-IN")}`}</button>
+            <div className="empty-panel payment-action-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <h2>UPI Payment QR</h2>
+              <p style={{ maxWidth: "500px", marginBottom: "15px" }}>If your payment verification is pending or rejected, please scan the QR code below to transfer <strong>₹{Number(registration.amount || 0).toLocaleString("en-IN")}</strong>.</p>
+              <img src="/payment-qr.png" alt="UPI Payment QR" style={{ maxWidth: "220px", width: "100%", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", padding: "10px", background: "white", marginBottom: "15px" }} />
+              <p style={{ fontSize: "0.9em", color: "var(--text-muted)", maxWidth: "500px" }}>After making the payment, please send the screenshot of the successful transaction showing the UTR/transaction ID to the organizing committee for manual verification.</p>
             </div>
           ) : null}
           <div className="dashboard-detail-grid">
