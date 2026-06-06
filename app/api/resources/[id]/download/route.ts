@@ -59,25 +59,6 @@ function cleanBaseName(resource: { title: string; category: string }) {
   return [resource.category, resource.title].map(cleanFilenamePart).filter(Boolean).join("-") || "invictus-resource";
 }
 
-function cloudinaryAttachmentUrl(fileUrl: string, filename: string) {
-  try {
-    const url = new URL(fileUrl);
-    if (!url.hostname.endsWith("cloudinary.com")) {
-      return null;
-    }
-
-    const uploadMarker = "/upload/";
-    if (!url.pathname.includes(uploadMarker)) {
-      return null;
-    }
-
-    url.pathname = url.pathname.replace(uploadMarker, `${uploadMarker}fl_attachment:${filename}/`);
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
     const resource = await prisma.resource.findUnique({
@@ -90,11 +71,6 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     }
 
     const cleanName = cleanBaseName(resource);
-    const cloudinaryDownload = cloudinaryAttachmentUrl(resource.fileUrl, cleanName);
-    if (cloudinaryDownload) {
-      return NextResponse.redirect(cloudinaryDownload);
-    }
-
     const upstream = await fetch(resource.fileUrl, { cache: "no-store" });
     if (!upstream.ok || !upstream.body) {
       return NextResponse.redirect(resource.fileUrl);
@@ -112,7 +88,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     return new NextResponse(upstream.body, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
         "Cache-Control": "private, max-age=300"
       }
     });
