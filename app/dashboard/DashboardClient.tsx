@@ -26,6 +26,7 @@ type Resource = {
 
 type Registration = {
   publicId: string;
+  trackingToken?: string | null;
   name: string;
   email: string;
   phone: string;
@@ -62,7 +63,8 @@ export function DashboardClient() {
       return;
     }
 
-    const key = trimmed.includes("@") ? "email" : trimmed.toUpperCase().startsWith("INV-") ? "id" : "phone";
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+    const key = trimmed.includes("@") ? "email" : (trimmed.toUpperCase().startsWith("INV-") || isUuid) ? "id" : "phone";
     setIsLookingUp(true);
 
     try {
@@ -203,10 +205,10 @@ export function DashboardClient() {
                 {hasAllotment ? (
                   <>
                     <div className="qr-link">
-                      <img className="qr-code-image" src={`/api/qr/${registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
+                      <img className="qr-code-image" src={`/api/qr/${registration.trackingToken || registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
                       <strong>{registration.name}</strong>
                       <span>{isDelegation ? "Delegation Group Pass" : `${registration.allottedCommittee} - ${registration.allottedPortfolio}`}</span>
-                      <small style={{ color: "var(--muted)" }}>/verify/pass/{registration.publicId}</small>
+                      <small style={{ color: "var(--muted)" }}>/verify/pass/{registration.trackingToken || registration.publicId}</small>
                     </div>
                   </>
                 ) : (

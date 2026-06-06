@@ -29,6 +29,9 @@ type Registration = {
   allotmentStatus: string;
   allottedCommittee?: string | null;
   allottedPortfolio?: string | null;
+  allotmentEmailSent?: boolean;
+  allotmentEmailSentAt?: string | null;
+  trackingToken?: string | null;
   checkedIn: boolean;
   checkedInAt?: string | null;
   checkedInBy?: string | null;
@@ -697,7 +700,7 @@ export function PortalClient() {
     setNote("");
   }
 
-  async function patchActive(label: string, patch: Record<string, string | null>) {
+  async function patchActive(label: string, patch: Record<string, any>) {
     if (!active) return;
     setActiveAction(label);
     setMessage("");
@@ -1282,42 +1285,69 @@ export function PortalClient() {
               <div className="table-wrap">
                 {activeTab === "individual" && (
                   <table>
-                    <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Delegate</th><th>Type</th><th>Preference</th><th>Payment</th><th>Status</th><th>Allotment</th><th>Email Status</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
                     <tbody>
                       {isLoading ? (
-                        <tr><td colSpan={9}><div className="empty-state">Loading individual registrations...</div></td></tr>
-                      ) : visibleIndividuals.length ? visibleIndividuals.map((registration, index) => (
-                        <tr key={registration.publicId}>
-                          <td>
-                            <div className="delegate">
-                              <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
-                              <span>
-                                <strong>{registration.name}</strong>
-                                <small>{registration.institution || registration.email}</small>
-                              </span>
-                            </div>
-                          </td>
-                          <td>{registration.type}</td>
-                          <td>{registration.committee1}</td>
-                          <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
-                          <td><span className={`status ${statusClass(registration.registrationStatus)}`}>{registration.registrationStatus}</span></td>
-                          <td><span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span></td>
-                          <td><span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>{registration.checkedIn ? "Checked In" : "Not Checked In"}</span></td>
-                          <td><span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>{registration.certificateReleased ? "Released" : "Not Released"}</span></td>
-                          <td>
-                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                              <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
-                              {registration.certificateReleased ? (
-                                <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>Released</button>
-                              ) : registration.checkedIn ? (
-                                <button className="button primary small-btn" disabled={isSavingOps} onClick={() => issueParticipationCertForDelegate(registration.publicId)} style={{ fontSize: "0.8em", padding: "4px 8px" }}>Release Certificate</button>
+                        <tr><td colSpan={10}><div className="empty-state">Loading individual registrations...</div></td></tr>
+                      ) : visibleIndividuals.length ? visibleIndividuals.map((registration, index) => {
+                        const hasEmail = Boolean(registration.email && registration.email.trim());
+                        const hasAllotment = Boolean(registration.allottedCommittee || registration.allottedPortfolio);
+                        const isPaid = registration.paymentStatus === "Verified";
+                        return (
+                          <tr key={registration.publicId}>
+                            <td>
+                              <div className="delegate">
+                                <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
+                                <span>
+                                  <strong>{registration.name}</strong>
+                                  <small>{registration.institution || registration.email}</small>
+                                </span>
+                              </div>
+                            </td>
+                            <td>{registration.type}</td>
+                            <td>{registration.committee1}</td>
+                            <td><span className={`status ${statusClass(registration.paymentStatus)}`}>{registration.paymentStatus}</span></td>
+                            <td><span className={`status ${statusClass(registration.registrationStatus)}`}>{registration.registrationStatus}</span></td>
+                            <td>
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span>
+                                {registration.allotmentStatus === "Allotted" && (
+                                  <small style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "2px" }}>
+                                    {registration.allottedCommittee} ({registration.allottedPortfolio})
+                                  </small>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              {registration.allotmentEmailSent ? (
+                                <span className="status verified" title={registration.allotmentEmailSentAt ? `Sent at ${new Date(registration.allotmentEmailSentAt).toLocaleString()}` : ""}>Sent</span>
+                              ) : !hasEmail ? (
+                                <span className="status rejected">Missing Email</span>
+                              ) : !hasAllotment ? (
+                                <span className="status pending">Missing Portfolio</span>
+                              ) : !isPaid ? (
+                                <span className="status review">Payment Pending</span>
                               ) : (
-                                <button className="button secondary small-btn" disabled title="Certificate cannot be released because this delegate has not checked in yet." style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}>Release Certificate</button>
+                                <span className="status pending">Pending</span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      )) : <tr><td colSpan={9}><div className="empty-state">No individual registrations found.</div></td></tr>}
+                            </td>
+                            <td><span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>{registration.checkedIn ? "Checked In" : "Not Checked In"}</span></td>
+                            <td><span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>{registration.certificateReleased ? "Released" : "Not Released"}</span></td>
+                            <td>
+                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
+                                {registration.certificateReleased ? (
+                                  <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>Released</button>
+                                ) : registration.checkedIn ? (
+                                  <button className="button primary small-btn" disabled={isSavingOps} onClick={() => issueParticipationCertForDelegate(registration.publicId)} style={{ fontSize: "0.8em", padding: "4px 8px" }}>Release Certificate</button>
+                                ) : (
+                                  <button className="button secondary small-btn" disabled title="Certificate cannot be released because this delegate has not checked in yet." style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}>Release Certificate</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }) : <tr><td colSpan={10}><div className="empty-state">No individual registrations found.</div></td></tr>}
                     </tbody>
                   </table>
                 )}
@@ -1366,49 +1396,67 @@ export function PortalClient() {
 
                 {activeTab === "delegates" && (
                   <table>
-                    <thead><tr><th>Delegate Name</th><th>Parent Delegation</th><th>Preference</th><th>Allotment</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Delegate Name</th><th>Parent Delegation</th><th>Preference</th><th>Allotment</th><th>Email Status</th><th>Check-in Status</th><th>Certificate Status</th><th>Actions</th></tr></thead>
                     <tbody>
                       {isLoading ? (
-                        <tr><td colSpan={7}><div className="empty-state">Loading delegates...</div></td></tr>
-                      ) : visibleDelegates.length ? visibleDelegates.map((registration, index) => (
-                        <tr key={registration.publicId}>
-                          <td>
-                            <div className="delegate">
-                              <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
-                              <span>
-                                <strong>{registration.name}</strong>
-                                <small>{registration.email || "No email"}</small>
-                              </span>
-                            </div>
-                          </td>
-                          <td>{registration.delegationName || "Group Delegation"}</td>
-                          <td>{registration.committee1 || "Not specified"}</td>
-                          <td>
-                            <div style={{ display: "flex", flexDirection: "column" }}>
-                              <span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span>
-                              {registration.allotmentStatus === "Allotted" && (
-                                <small style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "2px" }}>
-                                  {registration.allottedCommittee} ({registration.allottedPortfolio})
-                                </small>
-                              )}
-                            </div>
-                          </td>
-                          <td><span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>{registration.checkedIn ? "Checked In" : "Not Checked In"}</span></td>
-                          <td><span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>{registration.certificateReleased ? "Released" : "Not Released"}</span></td>
-                          <td>
-                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                              <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
-                              {registration.certificateReleased ? (
-                                <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>Released</button>
-                              ) : registration.checkedIn ? (
-                                <button className="button primary small-btn" disabled={isSavingOps} onClick={() => issueParticipationCertForDelegate(registration.publicId)} style={{ fontSize: "0.8em", padding: "4px 8px" }}>Release Certificate</button>
+                        <tr><td colSpan={8}><div className="empty-state">Loading delegates...</div></td></tr>
+                      ) : visibleDelegates.length ? visibleDelegates.map((registration, index) => {
+                        const hasEmail = Boolean(registration.email && registration.email.trim());
+                        const hasAllotment = Boolean(registration.allottedCommittee || registration.allottedPortfolio);
+                        const isPaid = registration.delegation?.paymentStatus === "Verified";
+                        return (
+                          <tr key={registration.publicId}>
+                            <td>
+                              <div className="delegate">
+                                <span className={`avatar ${["purple", "pink", "blue", "gold"][index % 4]}`}>{initials(registration.name)}</span>
+                                <span>
+                                  <strong>{registration.name}</strong>
+                                  <small>{registration.email || "No email"}</small>
+                                </span>
+                              </div>
+                            </td>
+                            <td>{registration.delegationName || "Group Delegation"}</td>
+                            <td>{registration.committee1 || "Not specified"}</td>
+                            <td>
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <span className={`status ${statusClass(registration.allotmentStatus)}`}>{registration.allotmentStatus}</span>
+                                {registration.allotmentStatus === "Allotted" && (
+                                  <small style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "2px" }}>
+                                    {registration.allottedCommittee} ({registration.allottedPortfolio})
+                                  </small>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              {registration.allotmentEmailSent ? (
+                                <span className="status verified" title={registration.allotmentEmailSentAt ? `Sent at ${new Date(registration.allotmentEmailSentAt).toLocaleString()}` : ""}>Sent</span>
+                              ) : !hasEmail ? (
+                                <span className="status rejected">Missing Email</span>
+                              ) : !hasAllotment ? (
+                                <span className="status pending">Missing Portfolio</span>
+                              ) : !isPaid ? (
+                                <span className="status review">Payment Pending</span>
                               ) : (
-                                <button className="button secondary small-btn" disabled title="Certificate cannot be released because this delegate has not checked in yet." style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}>Release Certificate</button>
+                                <span className="status pending">Pending</span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      )) : <tr><td colSpan={7}><div className="empty-state">No delegation delegates found.</div></td></tr>}
+                            </td>
+                            <td><span className={`status ${registration.checkedIn ? "verified" : "pending"}`}>{registration.checkedIn ? "Checked In" : "Not Checked In"}</span></td>
+                            <td><span className={`status ${registration.certificateReleased ? "verified" : "pending"}`}>{registration.certificateReleased ? "Released" : "Not Released"}</span></td>
+                            <td>
+                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                <button className="row-action" onClick={() => openRegistration(registration)}>Review</button>
+                                {registration.certificateReleased ? (
+                                  <button className="button secondary small-btn" disabled style={{ fontSize: "0.8em", padding: "4px 8px", opacity: 0.7 }}>Released</button>
+                                ) : registration.checkedIn ? (
+                                  <button className="button primary small-btn" disabled={isSavingOps} onClick={() => issueParticipationCertForDelegate(registration.publicId)} style={{ fontSize: "0.8em", padding: "4px 8px" }}>Release Certificate</button>
+                                ) : (
+                                  <button className="button secondary small-btn" disabled title="Certificate cannot be released because this delegate has not checked in yet." style={{ fontSize: "0.8em", padding: "4px 8px", cursor: "not-allowed", opacity: 0.5 }}>Release Certificate</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }) : <tr><td colSpan={8}><div className="empty-state">No delegation delegates found.</div></td></tr>}
                     </tbody>
                   </table>
                 )}
@@ -1862,7 +1910,7 @@ export function PortalClient() {
                 </div>
               )}
               {(active.allotmentStatus === "Allotted" || (active.registrationType === "delegation" && active.registrationStatus === "Approved")) && (
-                <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.publicId}</span><img src={`/api/qr/${active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
+                <div className="qr-preview"><strong>QR Preview</strong><span>/verify/pass/{active.trackingToken || active.publicId}</span><img src={`/api/qr/${active.trackingToken || active.publicId}`} alt={`QR pass for ${active.publicId}`} /></div>
               )}
             </div>
             
@@ -1913,6 +1961,15 @@ export function PortalClient() {
               <button className="button secondary" disabled={Boolean(activeAction)} onClick={() => patchActive("Registration approval", { paymentStatus: "Verified", registrationStatus: "Approved" })}>{activeAction === "Registration approval" ? "Saving..." : "Approve"}</button>
               {active.registrationType !== "delegation" && (
                 <button className="button primary" disabled={Boolean(activeAction)} onClick={() => patchActive("Allotment release", { paymentStatus: "Verified", registrationStatus: "Approved", allotmentStatus: "Allotted", allottedCommittee: committee || "", allottedPortfolio: portfolio || "" })}>{activeAction === "Allotment release" ? "Saving..." : active.allotmentStatus === "Allotted" ? "Save allotment changes" : "Release allotment"}</button>
+              )}
+              {active.registrationType !== "delegation" && (
+                <button
+                  className="button secondary"
+                  disabled={Boolean(activeAction) || !active.email}
+                  onClick={() => patchActive("Allotment Email Send", { resendAllotmentEmail: true })}
+                >
+                  {activeAction === "Allotment Email Send" ? "Sending..." : active.allotmentEmailSent ? "Resend Allotment Email" : "Send Allotment Email"}
+                </button>
               )}
             </div>
             {active.notes?.length ? <div className="notes-list"><h3>Admin notes</h3>{active.notes.map((item: any) => <p key={item.id}>{item.note}</p>)}</div> : null}

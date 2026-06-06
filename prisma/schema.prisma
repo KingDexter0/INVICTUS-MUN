@@ -238,6 +238,9 @@ model CheckInOtp {
 model IndividualRegistration {
   id                    String                         @id @default(cuid())
   publicId              String                         @unique
+  trackingToken         String?                        @unique
+  allotmentEmailSent    Boolean                        @default(false)
+  allotmentEmailSentAt  DateTime?
   name                  String
   email                 String                         @unique
   phone                 String
@@ -335,6 +338,9 @@ model DelegationRegistration {
 model DelegationDelegate {
   id                    String                         @id @default(cuid())
   publicId              String                         @unique
+  trackingToken         String?                        @unique
+  allotmentEmailSent    Boolean                        @default(false)
+  allotmentEmailSentAt  DateTime?
   delegationId          String
   delegation            DelegationRegistration         @relation(fields: [delegationId], references: [id], onDelete: Cascade)
   name                  String

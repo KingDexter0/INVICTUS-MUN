@@ -309,3 +309,180 @@ export async function sendCheckInOtpEmail(
     `,
   });
 }
+
+// --- Combined Allotment and Payment Email Sending Logic ---
+
+import { randomUUID } from "crypto";
+import { prisma } from "./prisma";
+
+export function getDelegateDashboardUrl(trackingToken: string): string {
+  const base = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || siteUrl();
+  return `${base}/dashboard?id=${encodeURIComponent(trackingToken)}`;
+}
+
+export async function sendAllotmentAndPaymentEmail({
+  to,
+  name,
+  publicId,
+  trackingToken,
+  committee,
+  portfolio,
+}: {
+  to: string;
+  name: string;
+  publicId: string;
+  trackingToken: string;
+  committee: string;
+  portfolio: string;
+}) {
+  const dashboardUrl = getDelegateDashboardUrl(trackingToken);
+  return sendEmail({
+    to,
+    subject: "Invictus MUN: Portfolio Allotment & Dashboard Access",
+    html: `
+      <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#181424">
+        <div style="max-width:620px;margin:0 auto;padding:28px">
+          ${testModeNotice("", "Allotment & Payment Confirmation")}
+          <div style="border-left:5px solid #6d43c8;padding-left:16px;margin-bottom:24px">
+            <p style="margin:0;color:#6d43c8;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Invictus MUN</p>
+            <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2">Your Portfolio is Allotted!</h1>
+          </div>
+          <p style="font-size:16px;line-height:1.7">Dear ${name},</p>
+          <p style="font-size:16px;line-height:1.7">We are pleased to inform you that your portfolio/allotment has been assigned, and your registration payment is verified. You can now access your personalized delegate dashboard.</p>
+          <div style="margin:20px 0;padding:16px;border:1px solid #e9e5f0;border-radius:14px;background:#fbf9ff">
+            <p style="margin:6px 0;color:#565061"><strong>Delegate ID:</strong> ${publicId}</p>
+            <p style="margin:6px 0;color:#565061"><strong>Committee:</strong> ${committee}</p>
+            <p style="margin:6px 0;color:#565061"><strong>Portfolio/Allotment:</strong> ${portfolio}</p>
+          </div>
+          <div style="margin:24px 0">
+            <a href="${dashboardUrl}" style="display:inline-block;padding:14px 24px;border-radius:999px;background:#6d43c8;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;text-align:center">Open Delegate Dashboard</a>
+          </div>
+          <p style="margin-top:24px;color:#706b7e;font-size:13px;line-height:1.6">This is an automated update from Invictus MUN.</p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+export async function maybeSendAllotmentPaymentEmail({
+  targetType,
+  targetId,
+  forceResend = false,
+}: {
+  targetType: "individual" | "delegate";
+  targetId: string;
+  forceResend?: boolean;
+}): Promise<EmailStatus & { skippedReason?: string }> {
+  if (targetType === "individual") {
+    const reg = await prisma.individualRegistration.findUnique({
+      where: { id: targetId },
+    });
+    if (!reg) return { status: "skipped", skippedReason: "Registration not found" };
+
+    const hasAllotment = Boolean(
+      (reg.allottedCommittee && reg.allottedCommittee.trim()) ||
+      (reg.allottedPortfolio && reg.allottedPortfolio.trim())
+    );
+    const isPaid = reg.paymentStatus === "Verified";
+
+    if (!hasAllotment || !isPaid) {
+      return {
+        status: "skipped",
+        skippedReason: `Criteria not met. hasAllotment=${hasAllotment}, isPaid=${isPaid}`,
+      };
+    }
+
+    if (reg.allotmentEmailSent && !forceResend) {
+      return { status: "skipped", skippedReason: "Email already sent previously" };
+    }
+
+    // Generate token if it doesn't exist
+    let trackingToken = reg.trackingToken;
+    if (!trackingToken) {
+      trackingToken = randomUUID();
+      await prisma.individualRegistration.update({
+        where: { id: targetId },
+        data: { trackingToken },
+      });
+    }
+
+    const res = await sendAllotmentAndPaymentEmail({
+      to: reg.email,
+      name: reg.name,
+      publicId: reg.publicId,
+      trackingToken,
+      committee: reg.allottedCommittee || "N/A",
+      portfolio: reg.allottedPortfolio || "N/A",
+    });
+
+    if (res.status === "sent" || res.status === "sent-test") {
+      await prisma.individualRegistration.update({
+        where: { id: targetId },
+        data: {
+          allotmentEmailSent: true,
+          allotmentEmailSentAt: new Date(),
+        },
+      });
+    }
+    return res;
+  } else {
+    // DelegationDelegate
+    const del = await prisma.delegationDelegate.findUnique({
+      where: { id: targetId },
+      include: { delegation: true },
+    });
+    if (!del) return { status: "skipped", skippedReason: "Delegate not found" };
+
+    const hasAllotment = Boolean(
+      (del.allottedCommittee && del.allottedCommittee.trim()) ||
+      (del.allottedPortfolio && del.allottedPortfolio.trim())
+    );
+    const isPaid = del.delegation.paymentStatus === "Verified";
+
+    if (!hasAllotment || !isPaid) {
+      return {
+        status: "skipped",
+        skippedReason: `Criteria not met. hasAllotment=${hasAllotment}, isPaid=${isPaid}`,
+      };
+    }
+
+    if (del.allotmentEmailSent && !forceResend) {
+      return { status: "skipped", skippedReason: "Email already sent previously" };
+    }
+
+    if (!del.email) {
+      return { status: "skipped", skippedReason: "Delegate email address is missing" };
+    }
+
+    // Generate token if it doesn't exist
+    let trackingToken = del.trackingToken;
+    if (!trackingToken) {
+      trackingToken = randomUUID();
+      await prisma.delegationDelegate.update({
+        where: { id: targetId },
+        data: { trackingToken },
+      });
+    }
+
+    const res = await sendAllotmentAndPaymentEmail({
+      to: del.email,
+      name: del.name,
+      publicId: del.publicId,
+      trackingToken,
+      committee: del.allottedCommittee || "N/A",
+      portfolio: del.allottedPortfolio || "N/A",
+    });
+
+    if (res.status === "sent" || res.status === "sent-test") {
+      await prisma.delegationDelegate.update({
+        where: { id: targetId },
+        data: {
+          allotmentEmailSent: true,
+          allotmentEmailSentAt: new Date(),
+        },
+      });
+    }
+    return res;
+  }
+}
+

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../../../lib/admin";
-import { sendRegistrationEmail } from "../../../../../../lib/mail";
+import { sendRegistrationEmail, maybeSendAllotmentPaymentEmail } from "../../../../../../lib/mail";
 import { prisma } from "../../../../../../lib/prisma";
 import { serializeIndividualRegistration } from "../../../../../../lib/registrations";
 import { operationsEmitter } from "../../../../../../lib/events";
@@ -97,60 +97,97 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     });
 
     let emailStatus: "sent" | "sent-test" | "failed" | "skipped" | undefined;
-    if (body.paymentStatus === "Verified" && !body.registrationStatus && !body.allotmentStatus) {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Payment verified",
-        action: "Your payment has been verified by the Invictus MUN organizing team.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Payment status", registration.paymentStatus],
-          ["Registration status", registration.registrationStatus]
-        ]
-      })).status;
-    } else if (body.paymentStatus === "Rejected") {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Payment needs attention",
-        action: "Your payment could not be verified. Please contact the organizing team with your transaction screenshot.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Payment status", registration.paymentStatus],
-          ["Registration status", registration.registrationStatus]
-        ]
-      })).status;
-    } else if (body.allotmentStatus === "Allotted") {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Allotment released",
-        action: "Your Invictus MUN committee and portfolio allotment has been released.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Committee", registration.allottedCommittee],
-          ["Portfolio", registration.allottedPortfolio],
-          ["Allotment status", registration.allotmentStatus]
-        ]
-      })).status;
-    } else if (body.registrationStatus === "Approved") {
-      emailStatus = (await sendRegistrationEmail({
-        to: registration.email,
-        name: registration.name,
-        publicId: registration.publicId,
-        heading: "Registration approved",
-        action: "Your Invictus MUN registration has been approved.",
-        dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
-        details: [
-          ["Payment status", registration.paymentStatus],
-          ["Registration status", registration.registrationStatus]
-        ]
-      })).status;
+    
+    // Check manual allotment/payment combined email send or auto send
+    if (body.resendAllotmentEmail) {
+      try {
+        const mailRes = await maybeSendAllotmentPaymentEmail({
+          targetType: "individual",
+          targetId: registration.id,
+          forceResend: true
+        });
+        emailStatus = mailRes.status as any;
+      } catch (err) {
+        console.error("Failed manual resend of allotment email", err);
+      }
+    } else {
+      try {
+        const mailRes = await maybeSendAllotmentPaymentEmail({
+          targetType: "individual",
+          targetId: registration.id,
+          forceResend: false
+        });
+        if (mailRes.status !== "skipped") {
+          emailStatus = mailRes.status as any;
+        }
+      } catch (err) {
+        console.error("Auto trigger allotment email check failed", err);
+      }
     }
+
+    // Legacy/compatibility transactional status emails (only if not sending the combined allotment/payment email)
+    if (!emailStatus) {
+      if (body.paymentStatus === "Verified" && !body.registrationStatus && !body.allotmentStatus) {
+        emailStatus = (await sendRegistrationEmail({
+          to: registration.email,
+          name: registration.name,
+          publicId: registration.publicId,
+          heading: "Payment verified",
+          action: "Your payment has been verified by the Invictus MUN organizing team.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+          details: [
+            ["Payment status", registration.paymentStatus],
+            ["Registration status", registration.registrationStatus]
+          ]
+        })).status;
+      } else if (body.paymentStatus === "Rejected") {
+        emailStatus = (await sendRegistrationEmail({
+          to: registration.email,
+          name: registration.name,
+          publicId: registration.publicId,
+          heading: "Payment needs attention",
+          action: "Your payment could not be verified. Please contact the organizing team with your transaction screenshot.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+          details: [
+            ["Payment status", registration.paymentStatus],
+            ["Registration status", registration.registrationStatus]
+          ]
+        })).status;
+      } else if (body.allotmentStatus === "Allotted") {
+        emailStatus = (await sendRegistrationEmail({
+          to: registration.email,
+          name: registration.name,
+          publicId: registration.publicId,
+          heading: "Allotment released",
+          action: "Your Invictus MUN committee and portfolio allotment has been released.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+          details: [
+            ["Committee", registration.allottedCommittee],
+            ["Portfolio", registration.allottedPortfolio],
+            ["Allotment status", registration.allotmentStatus]
+          ]
+        })).status;
+      } else if (body.registrationStatus === "Approved") {
+        emailStatus = (await sendRegistrationEmail({
+          to: registration.email,
+          name: registration.name,
+          publicId: registration.publicId,
+          heading: "Registration approved",
+          action: "Your Invictus MUN registration has been approved.",
+          dashboardPath: `/dashboard?id=${encodeURIComponent(registration.publicId)}`,
+          details: [
+            ["Payment status", registration.paymentStatus],
+            ["Registration status", registration.registrationStatus]
+          ]
+        })).status;
+      }
+    }
+
+    // Refetch registration to ensure trackingToken, allotmentEmailSent, and allotmentEmailSentAt are updated for SSE
+    const freshRegistration = await prisma.individualRegistration.findUnique({
+      where: { id: registration.id },
+      include: { notes: { orderBy: { createdAt: "desc" } } }
+    }) || registration;
 
     // Broadcast SSE update so other admin dashboards sync in real-time
     operationsEmitter.emit("update", {
@@ -158,11 +195,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       data: {
         publicId: params.id,
         updatedFields: patch,
-        registration: serializeIndividualRegistration(registration)
+        registration: serializeIndividualRegistration(freshRegistration)
       }
     });
 
-    return NextResponse.json({ registration: serializeIndividualRegistration(registration), emailStatus });
+    return NextResponse.json({ registration: serializeIndividualRegistration(freshRegistration), emailStatus });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });

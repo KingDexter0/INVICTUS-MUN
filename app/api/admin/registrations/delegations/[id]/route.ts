@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "../../../../../../lib/admin";
-import { sendRegistrationEmail } from "../../../../../../lib/mail";
+import { sendRegistrationEmail, maybeSendAllotmentPaymentEmail } from "../../../../../../lib/mail";
 import { prisma } from "../../../../../../lib/prisma";
 import { serializeDelegationRegistration } from "../../../../../../lib/registrations";
 import { operationsEmitter } from "../../../../../../lib/events";
@@ -79,6 +79,23 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     });
 
     let emailStatus: "sent" | "sent-test" | "failed" | "skipped" | undefined;
+
+    // If payment is verified, automatically check and send emails to delegates in this delegation
+    if (body.paymentStatus === "Verified") {
+      try {
+        const delegateList = delegation.delegates || [];
+        for (const delegate of delegateList) {
+          await maybeSendAllotmentPaymentEmail({
+            targetType: "delegate",
+            targetId: delegate.id,
+            forceResend: false
+          });
+        }
+      } catch (err) {
+        console.error("Auto trigger allotment email check for delegates failed on delegation update", err);
+      }
+    }
+
     if (body.paymentStatus === "Verified" && !body.registrationStatus) {
       emailStatus = (await sendRegistrationEmail({
         to: delegation.coTeacherEmail,
@@ -145,3 +162,4 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Could not update delegation registration." }, { status: 500 });
   }
 }
+

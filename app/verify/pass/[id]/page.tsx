@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "../../../components/SiteHeader";
-import { prisma } from "../../../../lib/prisma";
+import { resolveRegistrationByToken } from "../../../../lib/registration-resolver";
 import { CheckInButton } from "./CheckInButton";
 
 export const dynamic = "force-dynamic";
@@ -20,14 +20,12 @@ function formatDate(value?: Date | null) {
 }
 
 export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
-  const registration = await prisma.registration.findUnique({
-    where: { publicId: params.id }
-  }).catch((error) => {
+  const registration = await resolveRegistrationByToken(params.id).catch((error) => {
     console.error("Pass verification lookup unavailable", error);
     return null;
   });
 
-  const isDelegation = registration?.registrationType === "delegation";
+  const isDelegation = registration?.targetType === "delegationDelegate" || (registration?.targetType === "legacy" && registration.delegationName);
   const isValid = Boolean(
     registration &&
     (registration.allotmentStatus === "Allotted" ||
@@ -44,7 +42,7 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
           <p>
             {isValid
               ? (isDelegation 
-                  ? "This pass belongs to an approved delegation group. Event staff can check the group in below." 
+                  ? "This pass belongs to an approved delegation group member. Event staff can check the delegate in below." 
                   : "This pass belongs to an allotted delegate. Event staff can check the delegate in below.")
               : "This pass cannot be used for check-in. It may be missing, pending approval, or not allotted yet."}
           </p>
@@ -54,11 +52,11 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
           <article className={`verify-card ${isValid ? "valid" : "invalid"}`}>
             <span className="verify-badge">{isValid ? "Valid Pass" : "Invalid Pass"}</span>
             {registration ? (
-              <img className="qr-code-image verify-qr" src={`/api/qr/${registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
+              <img className="qr-code-image verify-qr" src={`/api/qr/${registration.trackingToken || registration.publicId}`} alt={`QR pass for ${registration.publicId}`} />
             ) : (
               <div className="qr-box verify-qr">--</div>
             )}
-            <h2>{registration?.name || "Pass not found"}</h2>
+            <h2>{registration?.fullName || "Pass not found"}</h2>
             <p>{registration?.publicId || params.id}</p>
             {registration?.checkedIn ? <strong className="checked-pill">Checked in</strong> : null}
           </article>
@@ -69,19 +67,13 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
               <>
                 <dl>
                   {[
-                    [isDelegation ? "Delegation name" : "Delegate name", registration.name],
-                    ["Registration Type", registration.registrationType === "delegation" ? "Delegation Group" : "Individual"],
+                    ["Delegate name", registration.fullName],
+                    ["Registration Type", registration.targetType === "delegationDelegate" ? "Delegation Group" : "Individual"],
                     ["Delegate ID", registration.publicId],
-                    ...(isDelegation
-                      ? [
-                          ["Total Delegates", registration.totalDelegates?.toString() || "10+"],
-                          ["Coordinating Teacher", registration.coTeacherName || "Not provided"]
-                        ]
-                      : [
-                          ["Committee", registration.allottedCommittee || "Not released"],
-                          ["Portfolio", registration.allottedPortfolio || "Not released"]
-                        ]
-                    ),
+                    ...(registration.delegationName ? [["Delegation Name", registration.delegationName]] : []),
+                    ...(registration.coTeacherName ? [["Coordinating Teacher", registration.coTeacherName]] : []),
+                    ["Committee", registration.committee || "Not released"],
+                    ["Portfolio", registration.portfolio || "Not released"],
                     ["Payment status", registration.paymentStatus],
                     ["Registration status", registration.registrationStatus],
                     ["Allotment status", registration.allotmentStatus],
@@ -93,12 +85,12 @@ export default async function VerifyPassPage({ params }: VerifyPassPageProps) {
 
                 {isValid ? (
                   <CheckInButton
-                    publicId={registration.publicId}
+                    publicId={registration.trackingToken || registration.publicId}
                     initialCheckedIn={registration.checkedIn}
                     initialCheckedInAt={registration.checkedInAt?.toISOString() || null}
-                    delegateName={registration.name}
-                    delegateCommittee={isDelegation ? "Delegation Group" : (registration.allottedCommittee || registration.committee1 || "Not assigned")}
-                    delegateInstitution={registration.institution || "Independent delegate"}
+                    delegateName={registration.fullName}
+                    delegateCommittee={registration.committee || "Not assigned"}
+                    delegateInstitution={registration.school || "Independent delegate"}
                   />
                 ) : (
                   <p className="form-message error">Check-in is locked until allotment is released or registration is approved.</p>

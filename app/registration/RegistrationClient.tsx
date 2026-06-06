@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { DynamicUpiQr } from "../components/DynamicUpiQr";
 
 const COMMITTEES = [
@@ -49,6 +50,9 @@ export function RegistrationClient() {
     delegationPricePerPerson = isDelAccommodation ? 5000 : 2000;
   }
   const delegationTotalPrice = delegatesCount * delegationPricePerPerson;
+
+  // Success View State
+  const [successData, setSuccessData] = useState<any | null>(null);
 
   function validateForm(formData: FormData) {
     const errors: string[] = [];
@@ -118,6 +122,13 @@ export function RegistrationClient() {
     // Add flow/type variables
     formData.append("registrationType", flow);
     formData.append("accommodation", flow === "individual" ? indAccommodation : delAccommodation);
+
+    if (flow === "delegation") {
+      const delegateNamesStr = String(formData.get("delegateNames") || "").trim();
+      const names = delegateNamesStr ? delegateNamesStr.split(/[\n,]+/).map(n => n.trim()).filter(Boolean) : [];
+      const delegatesArray = names.map(name => ({ name }));
+      formData.append("delegates", JSON.stringify(delegatesArray));
+    }
     
     const errors = validateForm(formData);
     if (errors.length) {
@@ -145,15 +156,81 @@ export function RegistrationClient() {
         return;
       }
 
-      setMessage("Registration saved successfully! Opening dashboard...");
+      setMessage("Registration saved successfully!");
       setMessageType("success");
-      router.push(`/dashboard?id=${encodeURIComponent(payload.id)}`);
+      setSuccessData(payload);
     } catch {
       setMessage("Could not reach the registration server. Please check your connection and try again.");
       setMessageType("error");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (successData) {
+    const isIndividual = successData.registrationType === "individual";
+    const totalAmount = isIndividual ? individualPrice : delegationTotalPrice;
+
+    return (
+      <div className="registration-success-container" style={{ padding: "40px", background: "white", borderRadius: "24px", border: "1px solid rgba(109,67,200,0.15)", boxShadow: "0 20px 60px rgba(51, 36, 88, 0.08)" }}>
+        <div style={{ textAlign: "center", marginBottom: "30px" }}>
+          <span style={{ fontSize: "4rem" }}>🎉</span>
+          <h2 style={{ fontSize: "2rem", fontWeight: "900", color: "var(--purple)", marginTop: "10px" }}>Registration Successful!</h2>
+          <p style={{ color: "var(--text-muted)", marginTop: "8px" }}>Your registration details have been saved in the system.</p>
+        </div>
+
+        <div style={{ padding: "20px", background: "#fbf9ff", borderRadius: "16px", border: "1px solid #e9e5f0", marginBottom: "30px" }}>
+          <h3 style={{ fontWeight: "bold", fontSize: "1.1em", marginBottom: "12px" }}>Access Your Dashboards</h3>
+          
+          {isIndividual ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <p>Your unique tracking token has been generated. Use it to check your status and access your QR pass.</p>
+              <Link 
+                className="button primary" 
+                href={`/dashboard?id=${encodeURIComponent(successData.trackingToken)}`}
+                style={{ alignSelf: "flex-start", marginTop: "5px" }}
+              >
+                Go to Delegate Dashboard
+              </Link>
+            </div>
+          ) : (
+            <div>
+              <p style={{ marginBottom: "15px" }}>The coordination parent record is created. Below are the unique status/dashboard links for your delegates. Please share them with each delegate:</p>
+              <div style={{ display: "grid", gap: "12px", maxHeight: "250px", overflowY: "auto", paddingRight: "5px" }}>
+                {successData.delegates?.map((d: any) => (
+                  <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "white", borderRadius: "10px", border: "1px solid #eef" }}>
+                    <span><strong>{d.fullName}</strong> ({d.id})</span>
+                    <Link 
+                      className="button secondary small-btn" 
+                      href={`/dashboard?id=${encodeURIComponent(d.trackingToken)}`}
+                      style={{ fontSize: "0.85em", padding: "4px 10px" }}
+                    >
+                      Open Dashboard
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "20px", background: "rgba(233,216,166,0.1)", borderRadius: "16px", border: "1px solid rgba(233,216,166,0.3)" }}>
+          <h3 style={{ fontWeight: "bold", color: "#6f4f00", fontSize: "1.1em", marginBottom: "12px" }}>Payment Instructions</h3>
+          <p style={{ fontSize: "0.95em", lineHeight: "1.5" }}>
+            Your payment status is currently <strong>PENDING</strong>. Once event admins review your uploaded transaction screenshot, your registration will be verified and your QR pass will be unlocked.
+          </p>
+          <p style={{ fontSize: "0.95em", marginTop: "10px" }}>
+            Total amount paid/under review: <strong>₹{totalAmount.toLocaleString("en-IN")}</strong>
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: "12px", marginTop: "30px", justifyContent: "flex-end" }}>
+          <button type="button" className="button secondary" onClick={() => { setSuccessData(null); setFlow("choose"); }}>
+            Register Another
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (flow === "choose") {

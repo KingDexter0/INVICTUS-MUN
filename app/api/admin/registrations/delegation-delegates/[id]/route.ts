@@ -3,6 +3,7 @@ import { assertAdmin } from "../../../../../../lib/admin";
 import { prisma } from "../../../../../../lib/prisma";
 import { serializeDelegationDelegate } from "../../../../../../lib/registrations";
 import { operationsEmitter } from "../../../../../../lib/events";
+import { maybeSendAllotmentPaymentEmail } from "../../../../../../lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -49,17 +50,51 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       include: { notes: { orderBy: { createdAt: "desc" } }, delegation: true }
     });
 
+    let emailStatus: "sent" | "sent-test" | "failed" | "skipped" | undefined;
+
+    if (body.resendAllotmentEmail) {
+      try {
+        const mailRes = await maybeSendAllotmentPaymentEmail({
+          targetType: "delegate",
+          targetId: delegate.id,
+          forceResend: true
+        });
+        emailStatus = mailRes.status as any;
+      } catch (err) {
+        console.error("Failed manual resend of allotment email for delegation delegate", err);
+      }
+    } else {
+      try {
+        const mailRes = await maybeSendAllotmentPaymentEmail({
+          targetType: "delegate",
+          targetId: delegate.id,
+          forceResend: false
+        });
+        if (mailRes.status !== "skipped") {
+          emailStatus = mailRes.status as any;
+        }
+      } catch (err) {
+        console.error("Auto trigger allotment email check failed for delegation delegate", err);
+      }
+    }
+
+    // Refetch delegate to make sure trackingToken, allotmentEmailSent, and allotmentEmailSentAt are updated for SSE
+    const freshDelegate = await prisma.delegationDelegate.findUnique({
+      where: { id: delegate.id },
+      include: { notes: { orderBy: { createdAt: "desc" } }, delegation: true }
+    }) || delegate;
+
     // Notify other admins about the change
     operationsEmitter.emit("update", {
       type: "delegate:updated",
       data: {
         publicId: params.id,
         updatedFields: patch,
-        registration: serializeDelegationDelegate(delegate)
+        registration: serializeDelegationDelegate(freshDelegate)
       }
     });
 
-    return NextResponse.json({ delegate: serializeDelegationDelegate(delegate) });
+    return NextResponse.json({ delegate: serializeDelegationDelegate(freshDelegate), emailStatus });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Admin access required." }, { status: 401 });
@@ -71,3 +106,4 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Could not update delegate." }, { status: 500 });
   }
 }
+

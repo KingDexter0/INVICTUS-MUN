@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { processDelegateEmail } = require('./helper-mail');
 
 let maxPublicIdNum = null;
 
@@ -392,6 +393,10 @@ async function main() {
             where: { id: dbRecord.id },
             data: { originalDelegationName: match.delegationName || 'None' }
           });
+          
+          // Trigger allotment email check
+          const updatedInd = await prisma.individualRegistration.findUnique({ where: { id: dbRecord.id } });
+          await processDelegateEmail('individual', updatedInd, false, true);
           continue;
         }
 
@@ -399,6 +404,7 @@ async function main() {
         const cleanDelName = match.delegationName.trim();
         const lowercaseKey = cleanDelName.toLowerCase();
 
+        let newDelegateRecord = null;
         await prisma.$transaction(async (tx) => {
           // Find or create parent delegation group with unique delegationName
           let delegation = await tx.delegationRegistration.findUnique({
@@ -446,9 +452,10 @@ async function main() {
 
           if (duplicateDelegate) {
             console.log(`Duplicate delegate detected: ${dbRecord.name} already exists under delegation ${cleanDelName}. Skipping insertion.`);
+            newDelegateRecord = duplicateDelegate;
           } else {
             // Create delegate
-            await tx.delegationDelegate.create({
+            newDelegateRecord = await tx.delegationDelegate.create({
               data: {
                 publicId: dbRecord.publicId,
                 delegationId: delegation.id,
@@ -478,6 +485,15 @@ async function main() {
           });
         });
 
+        if (newDelegateRecord) {
+          // Trigger allotment email check
+          const freshDel = await prisma.delegationDelegate.findUnique({
+            where: { id: newDelegateRecord.id },
+            include: { delegation: true }
+          });
+          await processDelegateEmail('delegate', freshDel, false, true);
+        }
+
         movedCount++;
       }
 
@@ -506,7 +522,7 @@ async function main() {
               console.log(`Email conflict for ${xl.name}. Using subaddressing: ${finalEmail}`);
             }
 
-            await prisma.individualRegistration.create({
+            const createdInd = await prisma.individualRegistration.create({
               data: {
                 publicId,
                 name: xl.name,
@@ -518,6 +534,9 @@ async function main() {
                 originalDelegationName: xl.delegationName || 'None'
               }
             });
+            
+            // Check & Send email
+            await processDelegateEmail('individual', createdInd, false, true);
             restoredCount++;
           } else {
             // Insert missing DelegationDelegate
@@ -544,7 +563,7 @@ async function main() {
             }
 
             const countD = await prisma.delegationDelegate.count();
-            await prisma.delegationDelegate.create({
+            const createdDel = await prisma.delegationDelegate.create({
               data: {
                 publicId: `${delegation.publicId}-d${countD + 1}`,
                 delegationId: delegation.id,
@@ -556,6 +575,13 @@ async function main() {
                 originalDelegationName: cleanDelName
               }
             });
+            
+            // Check & Send email
+            const freshDel = await prisma.delegationDelegate.findUnique({
+              where: { id: createdDel.id },
+              include: { delegation: true }
+            });
+            await processDelegateEmail('delegate', freshDel, false, true);
             restoredCount++;
           }
         }
@@ -605,7 +631,7 @@ async function main() {
             finalEmail = `${local}+${item.name.toLowerCase().replace(/\s+/g, '-')}@${domain}`;
           }
 
-          await prisma.individualRegistration.upsert({
+          const record = await prisma.individualRegistration.upsert({
             where: { email: finalEmail },
             update: {
               name: item.name,
@@ -626,6 +652,9 @@ async function main() {
               originalDelegationName: item.delegationName || 'None'
             }
           });
+          
+          // Trigger allotment email check
+          await processDelegateEmail('individual', record, false, true);
           indCount++;
         } catch (err) {
           console.error(`Error importing individual ${item.name}:`, err.message);
@@ -680,9 +709,10 @@ async function main() {
                 });
               }
 
+              let updatedOrCreatedDelegate = null;
               if (existingDelegate) {
                 // Update existing
-                await prisma.delegationDelegate.update({
+                updatedOrCreatedDelegate = await prisma.delegationDelegate.update({
                   where: { id: existingDelegate.id },
                   data: {
                     phone: delItem.phone || existingDelegate.phone,
@@ -694,7 +724,7 @@ async function main() {
               } else {
                 // Create new delegate
                 const countD = await prisma.delegationDelegate.count();
-                await prisma.delegationDelegate.create({
+                updatedOrCreatedDelegate = await prisma.delegationDelegate.create({
                   data: {
                     publicId: `${delegation.publicId}-d${countD + 1}`,
                     delegationId: delegation.id,
@@ -707,6 +737,15 @@ async function main() {
                   }
                 });
                 delDelegateCount++;
+              }
+
+              if (updatedOrCreatedDelegate) {
+                // Trigger allotment email check
+                const freshDel = await prisma.delegationDelegate.findUnique({
+                  where: { id: updatedOrCreatedDelegate.id },
+                  include: { delegation: true }
+                });
+                await processDelegateEmail('delegate', freshDel, false, true);
               }
             } catch (err) {
               console.error(`Error importing delegation delegate ${delItem.name}:`, err.message);
@@ -740,3 +779,4 @@ async function main() {
 }
 
 main().catch(console.error);
+
