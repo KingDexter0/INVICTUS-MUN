@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { DynamicUpiQr } from "../components/DynamicUpiQr";
 
 const COMMITTEES = [
   "UNGA-ESS",
@@ -266,9 +267,9 @@ export function RegistrationClient() {
               </div>
               <div className="wide" style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "20px 0", padding: "20px", background: "white", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)" }}>
                 <h4 style={{ fontWeight: "bold", color: "var(--purple)", marginBottom: "12px", textAlign: "center" }}>Scan QR Code to Pay via UPI</h4>
-                <img src="/payment-qr.png" alt="UPI Payment QR" style={{ maxWidth: "220px", width: "100%", borderRadius: "8px", border: "1px solid #eee", padding: "10px", background: "#fdfdfd" }} />
-                <p style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "12px", textAlign: "center", lineHeight: "1.4" }}>
-                  Scan the QR code above using GPay, PhonePe, Paytm, or any UPI app to transfer <strong>₹{individualPrice.toLocaleString("en-IN")}</strong>.<br />
+                <DynamicUpiQr amount={individualPrice} />
+                <p style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "15px", textAlign: "center", lineHeight: "1.4" }}>
+                  Scan the QR code above using GPay, PhonePe, Paytm, or any UPI app.<br />
                   Once payment is complete, take a screenshot of the successful transaction page and upload it below.
                 </p>
               </div>
@@ -359,9 +360,9 @@ export function RegistrationClient() {
               {delegatesCount >= 10 && (
                 <div className="wide" style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "20px 0", padding: "20px", background: "white", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)" }}>
                   <h4 style={{ fontWeight: "bold", color: "var(--purple)", marginBottom: "12px", textAlign: "center" }}>Scan QR Code to Pay via UPI</h4>
-                  <img src="/payment-qr.png" alt="UPI Payment QR" style={{ maxWidth: "220px", width: "100%", borderRadius: "8px", border: "1px solid #eee", padding: "10px", background: "#fdfdfd" }} />
-                  <p style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "12px", textAlign: "center", lineHeight: "1.4" }}>
-                    Scan the QR code above using GPay, PhonePe, Paytm, or any UPI app to transfer <strong>₹{delegationTotalPrice.toLocaleString("en-IN")}</strong>.<br />
+                  <DynamicUpiQr amount={delegationTotalPrice} />
+                  <p style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: "15px", textAlign: "center", lineHeight: "1.4" }}>
+                    Scan the QR code above using GPay, PhonePe, Paytm, or any UPI app.<br />
                     Once payment is complete, take a screenshot of the successful transaction page and upload it below.
                   </p>
                 </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { isSafeExternalUrl } from "../../lib/security";
+import { DynamicUpiQr } from "../components/DynamicUpiQr";
 
 type Announcement = {
   id: string;
@@ -154,9 +155,9 @@ export function DashboardClient() {
           {canPayOnline ? (
             <div className="empty-panel payment-action-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
               <h2>UPI Payment QR</h2>
-              <p style={{ maxWidth: "500px", marginBottom: "15px" }}>If your payment verification is pending or rejected, please scan the QR code below to transfer <strong>₹{Number(registration.amount || 0).toLocaleString("en-IN")}</strong>.</p>
-              <img src="/payment-qr.png" alt="UPI Payment QR" style={{ maxWidth: "220px", width: "100%", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", padding: "10px", background: "white", marginBottom: "15px" }} />
-              <p style={{ fontSize: "0.9em", color: "var(--text-muted)", maxWidth: "500px" }}>After making the payment, please send the screenshot of the successful transaction showing the UTR/transaction ID to the organizing committee for manual verification.</p>
+              <p style={{ maxWidth: "500px", marginBottom: "15px" }}>If your payment verification is pending or rejected, please scan the QR code below to transfer.</p>
+              <DynamicUpiQr amount={registration.amount} />
+              <p style={{ fontSize: "0.9em", color: "var(--text-muted)", maxWidth: "500px", marginTop: "15px" }}>After making the payment, please send the screenshot of the successful transaction showing the UTR/transaction ID to the organizing committee for manual verification.</p>
             </div>
           ) : null}
           <div className="dashboard-detail-grid">
