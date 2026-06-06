@@ -17,10 +17,10 @@ export default function RegistrationPage() {
           <aside className="registration-aside">
             <h2>What happens next?</h2>
             <ol>
-              <li>Your registration is saved in the database.</li>
-              <li>Your dashboard opens with the Razorpay payment button.</li>
-              <li>Successful Razorpay payments are verified automatically.</li>
-              <li>Admin approves your registration after payment confirmation.</li>
+              <li>Your registration and payment screenshot are saved in the database.</li>
+              <li>Your dashboard opens to track your verification status.</li>
+              <li>Successful UPI payments are verified manually by the admin team.</li>
+              <li>Admin approves your registration after payment verification.</li>
               <li>Committee and portfolio allotment appears on your dashboard.</li>
               <li>Your QR pass becomes available for event-day check-in.</li>
             </ol>
