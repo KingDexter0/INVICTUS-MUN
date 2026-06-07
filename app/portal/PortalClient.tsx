@@ -1233,15 +1233,17 @@ export function PortalClient() {
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
-                background: realtimeStatus === "connected" ? "#10b981" : realtimeStatus === "connecting" ? "#f59e0b" : "#ef4444",
-                boxShadow: realtimeStatus === "connected" ? "0 0 8px #10b981" : "none"
+                background: (realtimeStatus === "connected" || realtimeStatus === "polling") ? "#10b981" : realtimeStatus === "connecting" ? "#f59e0b" : "#ef4444",
+                boxShadow: (realtimeStatus === "connected" || realtimeStatus === "polling") ? "0 0 8px #10b981" : "none"
               }}></span>
               <span style={{ fontSize: "12px", fontWeight: "600", color: "#706b7e" }}>
                 {realtimeStatus === "connected" 
                   ? "Live updates on" 
-                  : realtimeStatus === "connecting" 
-                    ? "Connecting live updates..." 
-                    : "Live updates offline (polling fallback)"}
+                  : realtimeStatus === "polling"
+                    ? "Live updates on (polling)"
+                    : realtimeStatus === "connecting" 
+                      ? "Connecting live updates..." 
+                      : "Live updates offline"}
               </span>
             </div>
             <div className="event-switcher"><span className="event-dot"></span><span><small>ACTIVE EVENT</small><strong>Invictus MUN 2026</strong></span></div>
