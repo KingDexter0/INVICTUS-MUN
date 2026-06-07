@@ -5,11 +5,7 @@ import { sanitizeOptionalImageUrl } from "../lib/security";
 
 export const dynamic = "force-dynamic";
 
-const snapshotCards = [
-  ["360+", "Delegates", "A serious multi-committee conference environment."],
-  ["10", "Committees", "Decision-focused rooms across global and national mandates."],
-  ["Multi-Regional", "Participation", "Delegates and institutions across regions."]
-];
+
 
 const differentiators = [
   {
@@ -71,6 +67,72 @@ async function getSafeTestimonials() {
 
 export default async function HomePage() {
   const safeTestimonials = await getSafeTestimonials();
+
+  // Fetch stats dynamically from database
+  const individualCount = await prisma.individualRegistration.count();
+  const delegationDelegateCount = await prisma.delegationDelegate.count();
+  const totalDelegatesCount = individualCount + delegationDelegateCount;
+
+  const indComm1 = await prisma.individualRegistration.findMany({ select: { committee1: true }, distinct: ['committee1'] });
+  const indComm2 = await prisma.individualRegistration.findMany({ select: { committee2: true }, distinct: ['committee2'] });
+  const indAllot = await prisma.individualRegistration.findMany({ select: { allottedCommittee: true }, distinct: ['allottedCommittee'] });
+  const delComm1 = await prisma.delegationDelegate.findMany({ select: { committee1: true }, distinct: ['committee1'] });
+  const delAllot = await prisma.delegationDelegate.findMany({ select: { allottedCommittee: true }, distinct: ['allottedCommittee'] });
+
+  const rawNames = [
+    ...indComm1.map(x => x.committee1),
+    ...indComm2.map(x => x.committee2),
+    ...indAllot.map(x => x.allottedCommittee),
+    ...delComm1.map(x => x.committee1),
+    ...delAllot.map(x => x.allottedCommittee)
+  ].filter((x): x is string => !!x);
+
+  const canonicalCommittees = [
+    "UNGA-ESS",
+    "UNHRC",
+    "UNCSW",
+    "FIFA",
+    "Lok Sabha",
+    "Arab League",
+    "International Press",
+    "UNSC",
+    "ECOFIN",
+    "IPL",
+    "DISEC",
+    "UNODC"
+  ];
+
+  const foundCommittees = new Set<string>();
+  const canonicalNormalized = canonicalCommittees.map(c => ({
+    original: c,
+    normalized: c.toUpperCase().replace(/\s+/g, '')
+  }));
+
+  for (const name of rawNames) {
+    const upper = name.toUpperCase().replace(/\s+/g, '');
+    let matched = false;
+    for (const c of canonicalNormalized) {
+      if (upper.startsWith(c.normalized) || upper.includes(c.normalized)) {
+        foundCommittees.add(c.original === "IP" ? "International Press" : c.original);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      if (upper.includes("LOKSABHA")) foundCommittees.add("Lok Sabha");
+      else if (upper.includes("ARABLEAGUE")) foundCommittees.add("Arab League");
+      else if (upper.includes("UNGA")) foundCommittees.add("UNGA-ESS");
+      else if (upper.startsWith("IP") || upper.includes("IP-") || upper.includes("JOURNAL")) foundCommittees.add("International Press");
+    }
+  }
+
+  const uniqueCommitteeCount = foundCommittees.size || 10; // Fallback to 10 if none found
+
+  const snapshotCards = [
+    [`${totalDelegatesCount}+`, "Delegates", "A serious multi-committee conference environment."],
+    [`${uniqueCommitteeCount}`, "Committees", "Decision-focused rooms across global and national mandates."],
+    ["Multi-Regional", "Participation", "Delegates and institutions across regions."]
+  ];
 
   return (
     <>
