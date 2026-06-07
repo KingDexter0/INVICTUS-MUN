@@ -2,6 +2,8 @@ import Link from "next/link";
 import { SiteFooter, SiteHeader } from "../components/SiteHeader";
 import { prisma } from "../../lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const staticCommittees = [
   {
     level: "Advanced",
