@@ -1826,7 +1826,6 @@ export function PortalClient() {
                 <h3>WhatsApp test</h3>
                 <input name="phone" placeholder="Phone with country code" required />
                 <button className="button secondary full" disabled={isSavingOps}>Send WhatsApp Test</button>
-                <p className="empty-copy">Requires WhatsApp Cloud API env vars and approved template.</p>
               </form>
             </section>
           </div>
