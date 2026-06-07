@@ -244,8 +244,51 @@ function actionSuccessMessage(label: string, name: string, emailStatus?: string)
   return `${action} saved for ${name}.`;
 }
 
+function isAdminSessionValid(): boolean {
+  if (typeof window === "undefined") return false;
+  const loggedIn = window.localStorage.getItem("adminLoggedIn");
+  const expiresAtStr = window.localStorage.getItem("adminSessionExpiresAt");
+  if (loggedIn !== "true" || !expiresAtStr) return false;
+
+  const expiresAt = Number(expiresAtStr);
+  if (Number.isNaN(expiresAt) || Date.now() >= expiresAt) {
+    window.localStorage.removeItem("adminLoggedIn");
+    window.localStorage.removeItem("adminLoginTime");
+    window.localStorage.removeItem("adminSessionExpiresAt");
+    return false;
+  }
+  return true;
+}
+
 export function PortalClient() {
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(() => {
+    return isAdminSessionValid();
+  });
+
+  function handleLock(msg = "Admin session expired. Unlock the portal again.") {
+    setIsUnlocked(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("adminLoggedIn");
+      window.localStorage.removeItem("adminLoginTime");
+      window.localStorage.removeItem("adminSessionExpiresAt");
+    }
+    if (msg) {
+      setMessage(msg);
+      setMessageType("error");
+    }
+  }
+
+  // Periodic checker to auto-logout when session expires
+  useEffect(() => {
+    if (!isUnlocked) return;
+    const interval = setInterval(() => {
+      if (!isAdminSessionValid()) {
+        handleLock("Admin session expired. Please log in again.");
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isUnlocked]);
+
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [needsAdminSetup, setNeedsAdminSetup] = useState(false);
@@ -390,6 +433,12 @@ export function PortalClient() {
         setMessage(payload.error || "Invalid admin account.");
         setMessageType("error");
         return;
+      }
+      if (typeof window !== "undefined") {
+        const expiresAt = Date.now() + 45 * 60 * 1000;
+        window.localStorage.setItem("adminLoggedIn", "true");
+        window.localStorage.setItem("adminLoginTime", String(Date.now()));
+        window.localStorage.setItem("adminSessionExpiresAt", String(expiresAt));
       }
       setIsUnlocked(true);
       setMessage("Admin account unlocked.");
@@ -565,9 +614,7 @@ export function PortalClient() {
     try {
       const response = await fetch(`/api/registrations?${params.toString()}`);
       if (response.status === 401) {
-        setIsUnlocked(false);
-        setMessage("Admin session expired. Unlock the portal again.");
-        setMessageType("error");
+        handleLock("Admin session expired. Unlock the portal again.");
         return;
       }
       const payload = await response.json();
@@ -1382,6 +1429,7 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => document.querySelector("#admin-users")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">U</span> Admin Users <b>{adminUsers.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#ops-tools")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">X</span> Ops Tools</button>
           <Link className="nav-item" href="/admin-portal/email-campaign"><span className="nav-icon">✉</span> Email Campaign</Link>
+          <button className="nav-item" type="button" onClick={() => handleLock("Logged out successfully.")} style={{ width: "100%", textAlign: "left", background: "none", border: "none" }}><span className="nav-icon">L</span> Logout</button>
         </nav>
         <div className="sidebar-bottom">
           <div className="admin-card"><div className="avatar">YP</div><span><strong>Yoksh Patil</strong><small>Super Admin</small></span></div>
