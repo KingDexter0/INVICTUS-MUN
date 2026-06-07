@@ -10,7 +10,7 @@ export default function RegistrationPage() {
         <section className="subpage-hero cinematic-subpage registration-hero">
           <p className="eyebrow">REGISTRATION</p>
           <h1>Enter Serious Diplomacy.</h1>
-          <p>Submit your delegate details, committee preferences, experience, and logistics information. Payment is completed securely through Razorpay from your dashboard.</p>
+          <p>Submit your delegate details, committee preferences, experience, and logistics information. Payment is completed securely through UPI.</p>
         </section>
         <section className="section registration-layout">
           <RegistrationClient />
