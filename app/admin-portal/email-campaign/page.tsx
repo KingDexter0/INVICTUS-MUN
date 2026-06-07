@@ -22,8 +22,10 @@ interface PreviewData {
 
 export default function EmailCampaignPage() {
   const [preview, setPreview] = useState<PreviewData | null>(null);
-  const [loading, setLoading] = useState(false);
+   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -44,6 +46,26 @@ export default function EmailCampaignPage() {
       setError((err as Error).message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runSmtpTest() {
+    setSmtpTesting(true);
+    setTestResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/email/test-smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "SMTP verification/send failed.");
+      setTestResult(data.message || "Test email sent successfully.");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSmtpTesting(false);
     }
   }
 
@@ -128,6 +150,14 @@ export default function EmailCampaignPage() {
         </div>
       )}
 
+      {/* ── Test Result ──────────────────────────────────────────────────── */}
+      {testResult && (
+        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "10px", padding: "14px 18px", marginBottom: "20px", color: "#166534" }}>
+          <strong>Success:</strong> {testResult}
+          <button onClick={() => setTestResult(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", color: "#166534" }}>✕</button>
+        </div>
+      )}
+
       {/* ── Warning for localhost ──────────────────────────────────────────── */}
       {preview?.appUrl.isLocalhost && (
         <div style={{ background: "#fff7ed", border: "1px solid #fdba74", borderRadius: "10px", padding: "14px 18px", marginBottom: "20px", color: "#c2410c" }}>
@@ -144,6 +174,13 @@ export default function EmailCampaignPage() {
           style={btnStyle("secondary")}
         >
           {loading ? "Loading…" : "↻ Refresh Preview"}
+        </button>
+        <button
+          onClick={runSmtpTest}
+          disabled={smtpTesting || sending}
+          style={btnStyle("secondary")}
+        >
+          {smtpTesting ? "Testing SMTP..." : "🧪 Run SMTP Test Email"}
         </button>
         <button
           onClick={() => { setSendMode("send"); setConfirmOpen(true); }}

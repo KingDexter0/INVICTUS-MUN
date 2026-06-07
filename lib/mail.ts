@@ -93,6 +93,16 @@ export async function verifySmtpConnection() {
   return true;
 }
 
+export function getSmtpProvider(): string {
+  const host = (process.env.SMTP_HOST || "").toLowerCase();
+  if (host.includes("gmail")) return "gmail";
+  if (host.includes("brevo") || host.includes("sendinblue")) return "brevo";
+  if (host.includes("sendgrid")) return "sendgrid";
+  if (host.includes("amazonaws")) return "ses";
+  if (host.includes("resend")) return "resend";
+  return host || "smtp";
+}
+
 async function logEmail({
   type,
   recipient,
@@ -101,6 +111,7 @@ async function logEmail({
   status,
   error,
   messageId,
+  provider,
 }: {
   type: string;
   recipient: string;
@@ -109,6 +120,7 @@ async function logEmail({
   status: "SENT" | "FAILED" | "SKIPPED";
   error?: string | null;
   messageId?: string | null;
+  provider?: string | null;
 }) {
   try {
     await prisma.emailLog.create({
@@ -120,6 +132,7 @@ async function logEmail({
         status,
         error: error || null,
         messageId: messageId || null,
+        provider: provider || getSmtpProvider(),
       },
     });
   } catch (err) {
