@@ -531,7 +531,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   display: grid;
   gap: 18px;
 }
-.snapshot-grid { grid-template-columns: repeat(4, 1fr); }
+.snapshot-grid { grid-template-columns: repeat(3, 1fr); }
 .snapshot-card, .differentiator-card, .edition-card, .committee-preview-card, .eb-highlight-card, .testimonial-card, .resource-cta-card {
   border: 1px solid rgba(109,67,200,.13);
   border-radius: 28px;

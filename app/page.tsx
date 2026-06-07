@@ -8,7 +8,6 @@ export const dynamic = "force-dynamic";
 const snapshotCards = [
   ["360+", "Delegates", "A serious multi-committee conference environment."],
   ["10", "Committees", "Decision-focused rooms across global and national mandates."],
-  ["INR 2L", "Cash Prizes", "Recognition for rigor, leadership, and policy clarity."],
   ["Multi-Regional", "Participation", "Delegates and institutions across regions."]
 ];
 
@@ -31,7 +30,6 @@ const differentiators = [
 ];
 
 const editionCards = [
-  ["Expanded Cash Prizes", "Recognition that rewards preparation, policy rigor, and leadership - not theatrics."],
   ["International Delegations", "Broader global participation across committees, raising the standard of competition and debate."],
   ["Structured Social Spaces", "Designed networking and curated interactions - not chaos disguised as socials."]
 ];
