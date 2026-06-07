@@ -295,6 +295,32 @@ export function RegistrationClient() {
               <label>Phone Number / WhatsApp Number<input required name="phone" minLength={7} maxLength={20} placeholder="+91 98765 43210" /></label>
             </fieldset>
 
+            <div className="wide" style={{ marginBottom: "20px" }}>
+              <div style={{
+                padding: "20px",
+                background: "rgba(109, 67, 200, 0.05)",
+                border: "1px dashed rgba(109, 67, 200, 0.3)",
+                borderRadius: "16px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "10px",
+                textAlign: "center"
+              }}>
+                <h3 style={{ margin: 0, fontSize: "1.1em", fontWeight: "bold", color: "var(--purple)" }}>Portfolio Matrix</h3>
+                <p style={{ margin: 0, fontSize: "0.9em", color: "var(--text-muted)" }}>Check the live seat allotment and availability matrix before filling in your preferences:</p>
+                <a 
+                  href="https://docs.google.com/spreadsheets/d/1Jiz4Ptn6CxWnQciazo6lqlQncbT_VoLisl_i6HRqHnI/edit?usp=sharing" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="button primary"
+                  style={{ display: "inline-block", textDecoration: "none", marginTop: "5px" }}
+                >
+                  Live Portfolio Matrix
+                </a>
+              </div>
+            </div>
+
             <fieldset>
               <legend>Committee Preferences</legend>
               <label>Committee Preference 1
@@ -376,6 +402,32 @@ export function RegistrationClient() {
               <label>Contact Number<input required name="coTeacherPhone" placeholder="Contact number" /></label>
               <label className="wide">Email ID<input required type="email" name="coTeacherEmail" placeholder="teacher@school.com" /></label>
             </fieldset>
+
+            <div className="wide" style={{ marginBottom: "20px" }}>
+              <div style={{
+                padding: "20px",
+                background: "rgba(109, 67, 200, 0.05)",
+                border: "1px dashed rgba(109, 67, 200, 0.3)",
+                borderRadius: "16px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "10px",
+                textAlign: "center"
+              }}>
+                <h3 style={{ margin: 0, fontSize: "1.1em", fontWeight: "bold", color: "var(--purple)" }}>Portfolio Matrix</h3>
+                <p style={{ margin: 0, fontSize: "0.9em", color: "var(--text-muted)" }}>Check the live seat allotment and availability matrix before filling in your preferences:</p>
+                <a 
+                  href="https://docs.google.com/spreadsheets/d/1Jiz4Ptn6CxWnQciazo6lqlQncbT_VoLisl_i6HRqHnI/edit?usp=sharing" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="button primary"
+                  style={{ display: "inline-block", textDecoration: "none", marginTop: "5px" }}
+                >
+                  Live Portfolio Matrix
+                </a>
+              </div>
+            </div>
 
             <fieldset>
               <legend>Delegates Roster</legend>
