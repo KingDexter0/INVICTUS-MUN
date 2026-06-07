@@ -82,184 +82,64 @@ export async function POST(request: Request, { params }: { params: { id: string 
       );
     }
 
-    // Read body
-    const body = await request.json().catch(() => null);
-    const otp = body?.otp ? String(body.otp).trim() : null;
-
-    if (!otp) {
-      // --- OTP Request Flow ---
-      // Fetch all added admin emails
-      const admins = await prisma.adminUser.findMany({
-        select: { email: true }
-      });
-      const adminEmails = admins.map((admin) => admin.email).filter(Boolean);
-
-      if (adminEmails.length === 0) {
-        return NextResponse.json(
-          { success: false, error: "No admin emails found. Please add an admin email before using OTP check-in." },
-          { status: 400 }
-        );
+    let checkedInBy = "Staff";
+    try {
+      const adminEmail = getAdminEmailFromToken();
+      if (adminEmail) {
+        checkedInBy = adminEmail;
       }
+    } catch {}
 
-      // Cooldown check (30 seconds) using publicId as the identifier
-      const recentOtp = await prisma.checkInOtp.findFirst({
-        where: {
-          delegateId: registration.publicId,
-          used: false,
-          createdAt: { gt: new Date(Date.now() - 30 * 1000) }
-        }
+    let updatedRecord: any;
+    const updateData = {
+      checkedIn: true,
+      checkedInAt: new Date(),
+      checkedInBy
+    };
+
+    if (registration.targetType === "individual") {
+      updatedRecord = await prisma.individualRegistration.update({
+        where: { id: registration.id },
+        data: updateData
       });
-
-      if (recentOtp) {
-        return NextResponse.json(
-          { success: false, error: "Please wait 30 seconds before requesting a new OTP." },
-          { status: 429 }
-        );
-      }
-
-      // Generate secure 6-digit numeric OTP
-      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
-
-      const createdOtp = await prisma.checkInOtp.create({
-        data: {
-          delegateId: registration.publicId,
-          otpHash: hashOtp(generatedOtp),
-          expiresAt,
-          used: false
-        }
-      });
-
-      // Log who initiated the request
-      let checkedInBy = "Staff";
-      try {
-        const adminEmail = getAdminEmailFromToken();
-        if (adminEmail) {
-          checkedInBy = adminEmail;
-        }
-      } catch {}
-      console.log(`[CHECK-IN OTP REQUEST] Delegate ${registration.publicId} initiated by admin: ${checkedInBy}`);
-
-      // Send OTP to all admins
-      try {
-        await Promise.all(
-          adminEmails.map((email) =>
-            sendCheckInOtpEmail(
-              email,
-              registration.fullName,
-              registration.publicId,
-              registration.committee || "Not assigned",
-              registration.school || "Independent delegate",
-              generatedOtp
-            )
-          )
-        );
-      } catch (err) {
-        console.error("Failed to send check-in OTP via SMTP:", err);
-        // Delete the created OTP record since sending failed
-        await prisma.checkInOtp.delete({
-          where: { id: createdOtp.id }
-        }).catch(() => {});
-        return NextResponse.json(
-          { success: false, error: "OTP could not be sent. Please check SMTP configuration." },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        status: "OTP_SENT",
-        message: "OTP has been sent to all admins",
-        delegate: delegateDetails(registration)
+    } else if (registration.targetType === "delegationDelegate") {
+      updatedRecord = await prisma.delegationDelegate.update({
+        where: { id: registration.id },
+        data: updateData
       });
     } else {
-      // --- OTP Verification Flow ---
-      const latestOtp = await prisma.checkInOtp.findFirst({
-        where: {
-          delegateId: registration.publicId,
-          used: false
-        },
-        orderBy: { createdAt: "desc" }
-      });
-
-      if (!latestOtp) {
-        return NextResponse.json({ success: false, error: "Invalid OTP. Please try again." }, { status: 400 });
-      }
-
-      const inputHash = hashOtp(otp);
-      if (latestOtp.otpHash !== inputHash) {
-        return NextResponse.json({ success: false, error: "Invalid OTP. Please try again." }, { status: 400 });
-      }
-
-      if (latestOtp.expiresAt < new Date()) {
-        return NextResponse.json({ success: false, error: "OTP expired. Please request a new OTP." }, { status: 400 });
-      }
-
-      // Mark OTP as used
-      await prisma.checkInOtp.update({
-        where: { id: latestOtp.id },
-        data: { used: true }
-      });
-
-      let checkedInBy = "Staff";
-      try {
-        const adminEmail = getAdminEmailFromToken();
-        if (adminEmail) {
-          checkedInBy = adminEmail;
-        }
-      } catch {}
-
-      let updatedRecord: any;
-      const updateData = {
-        checkedIn: true,
-        checkedInAt: new Date(),
-        checkedInBy
-      };
-
-      if (registration.targetType === "individual") {
-        updatedRecord = await prisma.individualRegistration.update({
-          where: { id: registration.id },
-          data: updateData
-        });
-      } else if (registration.targetType === "delegationDelegate") {
-        updatedRecord = await prisma.delegationDelegate.update({
-          where: { id: registration.id },
-          data: updateData
-        });
-      } else {
-        updatedRecord = await prisma.registration.update({
-          where: { id: registration.id },
-          data: updateData
-        });
-      }
-
-      console.log(`[CHECK-IN OTP VERIFIED] Delegate ${registration.publicId} checked in successfully by admin: ${checkedInBy}`);
-
-      const serialized = getSerialized(updatedRecord, registration.targetType);
-
-      operationsEmitter.emit("update", {
-        type: "delegate:checked-in",
-        data: {
-          publicId: registration.publicId,
-          checkedInAt: updateData.checkedInAt.toISOString(),
-          checkedInBy,
-          registration: serialized
-        }
-      });
-
-      return NextResponse.json({
-        success: true,
-        status: "CHECKED_IN",
-        message: "Delegate checked in.",
-        delegate: {
-          ...delegateDetails(registration),
-          checkedIn: true,
-          checkedInAt: updateData.checkedInAt.toISOString()
-        },
-        checkedInAt: updateData.checkedInAt.toISOString(),
-        registration: serialized
+      updatedRecord = await prisma.registration.update({
+        where: { id: registration.id },
+        data: updateData
       });
     }
+
+    console.log(`[CHECK-IN VERIFIED] Delegate ${registration.publicId} checked in successfully by admin: ${checkedInBy}`);
+
+    const serialized = getSerialized(updatedRecord, registration.targetType);
+
+    operationsEmitter.emit("update", {
+      type: "delegate:checked-in",
+      data: {
+        publicId: registration.publicId,
+        checkedInAt: updateData.checkedInAt.toISOString(),
+        checkedInBy,
+        registration: serialized
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      status: "CHECKED_IN",
+      message: "Delegate checked in.",
+      delegate: {
+        ...delegateDetails(registration),
+        checkedIn: true,
+        checkedInAt: updateData.checkedInAt.toISOString()
+      },
+      checkedInAt: updateData.checkedInAt.toISOString(),
+      registration: serialized
+    });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED") {
       return NextResponse.json(

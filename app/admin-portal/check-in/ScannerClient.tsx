@@ -149,9 +149,24 @@ export function AdminQrScanner() {
       );
 
       if (mountedRef.current) setScannerState("scanning");
-    } catch {
+    } catch (err: any) {
       if (!mountedRef.current) return;
-      setCameraError("Camera permission failed or no camera was found. You can enter the pass code manually.");
+      console.error("Scanner failed to start:", err);
+
+      const errString = String(err || "");
+      const isPermissionOrPolicyBlocked =
+        errString.includes("NotAllowedError") ||
+        errString.includes("Permission") ||
+        errString.includes("SecurityError") ||
+        errString.includes("policy") ||
+        (typeof window !== "undefined" && window.self !== window.top);
+
+      let msg = "Camera permission failed or no camera was found. You can enter the pass code manually.";
+      if (isPermissionOrPolicyBlocked) {
+        msg = "Camera access is blocked by browser policy. If you are viewing this in an embedded preview, iframe, or custom app shell, please open the admin portal in a real, dedicated browser tab. You can also enter the pass code manually.";
+      }
+
+      setCameraError(msg);
       setManualOpen(true);
       setScannerState("stopped");
     }

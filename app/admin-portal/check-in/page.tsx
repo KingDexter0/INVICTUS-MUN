@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import nextDynamic from "next/dynamic";
 import { assertAdmin } from "../../../lib/admin";
-import { AdminQrScanner } from "./ScannerClient";
+
+const AdminQrScanner = nextDynamic(
+  () => import("./ScannerClient").then((mod) => mod.AdminQrScanner),
+  { ssr: false }
+);
 
 export const dynamic = "force-dynamic";
 
