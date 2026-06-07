@@ -1,6 +1,7 @@
 import { SiteFooter, SiteHeader } from "../components/SiteHeader";
 import { prisma } from "../../lib/prisma";
 import { sanitizeOptionalImageUrl, sanitizeOptionalSocialUrl } from "../../lib/security";
+import { BoardPosterCard } from "./BoardPosterCard";
 
 export const dynamic = "force-dynamic";
 
@@ -52,22 +53,22 @@ export default async function ExecutiveBoardPage() {
         </section>
         <section className="section eb-directory">
           {safeProfiles.length ? Object.entries(grouped).map(([committee, members]) => (
-            <div className="eb-group" key={committee}>
+            <div className="eb-group" key={committee} style={{ marginBottom: "40px" }}>
               <div className="section-head">
                 <div><p className="eyebrow">{committee}</p><h2>{committee}</h2></div>
               </div>
-              <div className="team-grid">
+              <div className="eb-poster-grid">
                 {members.map((member) => (
-                  <article className="eb-card" key={member.id}>
-                    {member.photoUrl ? <img src={member.photoUrl} alt={member.fullName} /> : <div className="portrait">{member.fullName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</div>}
-                    <h3>{member.fullName}</h3>
-                    <strong>{member.position}</strong>
-                    <p>{member.bio}</p>
-                    <div className="eb-links">
-                      {member.instagram ? <a href={member.instagram} target="_blank" rel="noopener noreferrer">Instagram</a> : null}
-                      {member.linkedin ? <a href={member.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a> : null}
-                    </div>
-                  </article>
+                  <BoardPosterCard
+                    key={member.id}
+                    name={member.fullName}
+                    committee={member.committee}
+                    position={member.position}
+                    image={member.photoUrl || ""}
+                    bio={member.bio}
+                    instagram={member.instagram}
+                    linkedin={member.linkedin}
+                  />
                 ))}
               </div>
             </div>
@@ -79,14 +80,13 @@ export default async function ExecutiveBoardPage() {
           </div>
           <div className="eb-poster-grid">
             {localBoardPosters.map((member) => (
-              <article className="eb-poster-card" key={member.image}>
-                <img src={member.image} alt={`${member.name}, ${member.position} for ${member.committee}`} />
-                <div>
-                  <span>{member.committee}</span>
-                  <h3>{member.name}</h3>
-                  <p>{member.position}</p>
-                </div>
-              </article>
+              <BoardPosterCard
+                key={member.image}
+                name={member.name}
+                committee={member.committee}
+                position={member.position}
+                image={member.image}
+              />
             ))}
           </div>
         </section>
