@@ -301,6 +301,17 @@ export function PortalClient() {
   const [announcement, setAnnouncement] = useState({ title: "", audience: "All registered delegates", message: "" });
   const [importReport, setImportReport] = useState<any | null>(null);
   const [showImportReport, setShowImportReport] = useState(false);
+  const [showCSVImportModal, setShowCSVImportModal] = useState(false);
+  const [isImportingCSV, setIsImportingCSV] = useState(false);
+  const [csvImportResult, setCsvImportResult] = useState<{
+    success?: boolean;
+    totalRows?: number;
+    importedCount?: number;
+    skippedCount?: number;
+    failedCount?: number;
+    errors?: string[];
+    duplicates?: string[];
+  } | null>(null);
 
   async function triggerPollRefresh() {
     if (!isUnlocked) return;
@@ -1079,6 +1090,46 @@ export function PortalClient() {
     }
   }
 
+  async function handleCSVImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const file = formData.get("file") as File | null;
+    if (!file || file.size === 0) {
+      setMessage("Please choose a CSV file first.");
+      setMessageType("error");
+      return;
+    }
+
+    setIsImportingCSV(true);
+    setCsvImportResult(null);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const response = await fetch("/api/admin/import-csv", {
+        method: "POST",
+        body: formData
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage(payload.error || "Could not import CSV file.");
+        setMessageType("error");
+        return;
+      }
+      setCsvImportResult(payload);
+      setMessage("CSV import process completed.");
+      setMessageType("success");
+      form.reset();
+      await triggerPollRefresh();
+    } catch {
+      setMessage("Could not connect to the CSV import server.");
+      setMessageType("error");
+    } finally {
+      setIsImportingCSV(false);
+    }
+  }
+
   async function saveTestimonial(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -1368,7 +1419,7 @@ export function PortalClient() {
         <section className="content" id="overview">
           <div className="page-heading">
             <div><p className="eyebrow">ADMIN PORTAL</p><h1>Good evening, Yoksh.</h1><p>Here is the live conference workspace.</p></div>
-            <div className="heading-actions"><Link className="button primary" href="/admin-portal/check-in">QR Check-in</Link><Link className="button primary" href="/admin-portal/email-campaign" style={{ background: "#6d43c8", color: "#fff" }}>✉ Bulk Allotment Emails</Link>{importReport && (<button className="button secondary" type="button" onClick={() => setShowImportReport(true)}>View import report</button>)}<button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a></div>
+            <div className="heading-actions"><Link className="button primary" href="/admin-portal/check-in">QR Check-in</Link><Link className="button primary" href="/admin-portal/email-campaign" style={{ background: "#6d43c8", color: "#fff" }}>✉ Bulk Allotment Emails</Link>{importReport && (<button className="button secondary" type="button" onClick={() => setShowImportReport(true)}>View import report</button>)}<button className="button secondary" type="button" onClick={sendTestEmail} disabled={isSendingTestEmail}>{isSendingTestEmail ? "Sending..." : "Send Test Email"}</button><button className="button secondary" type="button" onClick={clearView}>Clear view</button><a className="button secondary" href="/api/export/registrations.csv">Export CSV</a><button className="button secondary" type="button" onClick={() => setShowCSVImportModal(true)}>Import CSV</button></div>
           </div>
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
 
@@ -2293,6 +2344,83 @@ export function PortalClient() {
           </div>
         </div>
       )}
+
+      {showCSVImportModal ? (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: "600px" }}>
+            <div className="dialog-head">
+              <div>
+                <p className="eyebrow">OPERATIONS</p>
+                <h2>Import Registrations CSV</h2>
+              </div>
+              <button onClick={() => { setShowCSVImportModal(false); setCsvImportResult(null); }}>x</button>
+            </div>
+            <form onSubmit={handleCSVImport} style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "14px", fontWeight: "600", color: "var(--text)" }}>Select CSV file</label>
+                <input name="file" type="file" accept=".csv" required style={{ border: "1px solid var(--line)", padding: "10px", borderRadius: "8px" }} />
+              </div>
+              <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: "1.4" }}>
+                <strong>CSV Requirements:</strong> Must contain a header row. Headers can be flexible (e.g. <code>Delegate Name</code>, <code>Email</code>, <code>Phone</code>, <code>Institution</code>, <code>Delegation Name</code>, etc.).
+                <br />
+                - If the <code>Delegation Name</code> field is empty or missing, the row will be created as an <strong>Individual Delegate</strong>.
+                <br />
+                - If <code>Delegation Name</code> is populated, the delegate will be grouped under that <strong>Delegation Registration</strong>.
+                <br />
+                - Delegates with duplicate emails will be skipped safely.
+              </p>
+              <div className="dialog-actions action-wrap">
+                <button className="button secondary" type="button" onClick={() => { setShowCSVImportModal(false); setCsvImportResult(null); }}>Cancel</button>
+                <button className="button primary" type="submit" disabled={isImportingCSV}>
+                  {isImportingCSV ? "Importing..." : "Upload & Import"}
+                </button>
+              </div>
+            </form>
+
+            {csvImportResult && (
+              <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                <h4 style={{ fontWeight: "bold", fontSize: "0.95em", borderBottom: "1px solid var(--line)", paddingBottom: "6px" }}>Import Summary</h4>
+                <div className="stats-grid mini-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)", width: "100%", gap: "10px", margin: "10px 0" }}>
+                  <article className="stat-card" style={{ padding: "12px" }}>
+                    <p style={{ fontSize: "0.8em" }}>Total Rows</p>
+                    <h3>{csvImportResult.totalRows}</h3>
+                  </article>
+                  <article className="stat-card" style={{ padding: "12px" }}>
+                    <p style={{ fontSize: "0.8em" }}>Imported</p>
+                    <h3>{csvImportResult.importedCount}</h3>
+                  </article>
+                  <article className="stat-card" style={{ padding: "12px" }}>
+                    <p style={{ fontSize: "0.8em" }}>Skipped</p>
+                    <h3>{csvImportResult.skippedCount}</h3>
+                  </article>
+                  <article className="stat-card" style={{ padding: "12px" }}>
+                    <p style={{ fontSize: "0.8em" }}>Failed</p>
+                    <h3>{csvImportResult.failedCount}</h3>
+                  </article>
+                </div>
+
+                {csvImportResult.duplicates && csvImportResult.duplicates.length > 0 && (
+                  <div>
+                    <h4 style={{ fontWeight: "bold", fontSize: "0.9em", color: "#f59e0b" }}>Skipped Duplicates</h4>
+                    <div style={{ maxHeight: "100px", overflowY: "auto", border: "1px solid var(--line)", borderRadius: "8px", padding: "8px", fontSize: "12px", background: "var(--bg-accent)" }}>
+                      {csvImportResult.duplicates.map((dup, i) => <div key={i}>{dup}</div>)}
+                    </div>
+                  </div>
+                )}
+
+                {csvImportResult.errors && csvImportResult.errors.length > 0 && (
+                  <div>
+                    <h4 style={{ fontWeight: "bold", fontSize: "0.9em", color: "#ef4444" }}>Errors / Failed Rows</h4>
+                    <div style={{ maxHeight: "120px", overflowY: "auto", border: "1px solid var(--line)", borderRadius: "8px", padding: "8px", fontSize: "12px", background: "var(--bg-accent)", color: "#ef4444" }}>
+                      {csvImportResult.errors.map((err, i) => <div key={i}>{err}</div>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
