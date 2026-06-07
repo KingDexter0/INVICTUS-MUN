@@ -533,3 +533,25 @@ model EmailLog {
   createdAt   DateTime @default(now())
 }
 
+model Committee {
+  id                  String   @id @default(cuid())
+  name                String
+  code                String
+  difficulty          String
+  posterImageUrl      String?
+  posterImagePublicId String?
+  description         String
+  eligibility         String
+  portfolioType       String
+  guideStatus         String
+  guideLink           String?
+  registrationLink    String?
+  sortOrder           Int      @default(0)
+  isPublished         Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([isPublished])
+  @@index([sortOrder])
+}
+

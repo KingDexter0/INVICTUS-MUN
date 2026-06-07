@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "../components/SiteHeader";
+import { prisma } from "../../lib/prisma";
 
-const committees = [
+const staticCommittees = [
   {
     level: "Advanced",
     name: "UNHRC",
@@ -10,7 +11,10 @@ const committees = [
     portfolio: "Member states and observers",
     guide: "Background guide ready",
     tag: "advanced",
-    image: "/committees/unhrc.jpg"
+    image: "/committees/unhrc.jpg",
+    registrationLink: null,
+    guideLink: null,
+    sortOrder: 10
   },
   {
     level: "Intermediate",
@@ -20,7 +24,10 @@ const committees = [
     portfolio: "Member states",
     guide: "Background guide ready",
     tag: "intermediate",
-    image: "/committees/arab-league.jpg"
+    image: "/committees/arab-league.jpg",
+    registrationLink: null,
+    guideLink: null,
+    sortOrder: 20
   },
   {
     level: "Intermediate",
@@ -30,7 +37,10 @@ const committees = [
     portfolio: "Countries and agencies",
     guide: "Background guide ready",
     tag: "intermediate",
-    image: "/committees/uncsw.jpg"
+    image: "/committees/uncsw.jpg",
+    registrationLink: null,
+    guideLink: null,
+    sortOrder: 30
   },
   {
     level: "Beginner",
@@ -40,7 +50,10 @@ const committees = [
     portfolio: "Federations and stakeholders",
     guide: "Background guide ready",
     tag: "beginner",
-    image: "/committees/fifa.jpg"
+    image: "/committees/fifa.jpg",
+    registrationLink: null,
+    guideLink: null,
+    sortOrder: 40
   },
   {
     level: "Advanced",
@@ -50,7 +63,10 @@ const committees = [
     portfolio: "UN member states",
     guide: "Background guide ready",
     tag: "advanced",
-    image: "/committees/unga-ess.jpg"
+    image: "/committees/unga-ess.jpg",
+    registrationLink: null,
+    guideLink: null,
+    sortOrder: 50
   },
   {
     level: "Beginner",
@@ -60,7 +76,10 @@ const committees = [
     portfolio: "MPs and parties",
     guide: "Background guide ready",
     tag: "beginner",
-    image: "/committees/lok-sabha.jpg"
+    image: "/committees/lok-sabha.jpg",
+    registrationLink: null,
+    guideLink: null,
+    sortOrder: 60
   },
   {
     level: "Press",
@@ -70,11 +89,64 @@ const committees = [
     portfolio: "Reporter or photographer",
     guide: "Background guide ready",
     tag: "press",
-    image: "/committees/international-press.jpg"
+    image: "/committees/international-press.jpg",
+    registrationLink: null,
+    guideLink: null,
+    sortOrder: 70
   }
 ];
 
-export default function CommitteesPage() {
+export default async function CommitteesPage() {
+  const dbCommittees = await prisma.committee.findMany({
+    where: { isPublished: true },
+    orderBy: { sortOrder: "asc" }
+  });
+
+  const mappedDbCommittees = dbCommittees.map((c: any) => {
+    let tag = "beginner";
+    let level = "Beginner";
+    if (c.difficulty.toLowerCase() === "intermediate") {
+      tag = "intermediate";
+      level = "Intermediate";
+    } else if (c.difficulty.toLowerCase() === "advanced") {
+      tag = "advanced";
+      level = "Advanced";
+    } else if (c.difficulty.toLowerCase() === "press") {
+      tag = "press";
+      level = "Press";
+    } else {
+      tag = c.difficulty.toLowerCase();
+      level = c.difficulty;
+    }
+
+    let guide = "Background guide coming soon";
+    if (c.guideStatus === "Ready") {
+      guide = "Background guide ready";
+    } else if (c.guideStatus === "Coming Soon") {
+      guide = "Background guide coming soon";
+    } else if (c.guideStatus === "Not Ready") {
+      guide = "Background guide not ready";
+    } else {
+      guide = c.guideStatus;
+    }
+
+    return {
+      level,
+      name: c.name,
+      agenda: c.description,
+      eligibility: c.eligibility,
+      portfolio: c.portfolioType,
+      guide,
+      tag,
+      image: c.posterImageUrl,
+      registrationLink: c.registrationLink,
+      guideLink: c.guideLink,
+      sortOrder: c.sortOrder
+    };
+  });
+
+  const allCommittees = [...staticCommittees, ...mappedDbCommittees].sort((a, b) => a.sortOrder - b.sortOrder);
+
   return (
     <>
       <SiteHeader />
@@ -85,21 +157,32 @@ export default function CommitteesPage() {
           <p>Procedure-driven committees built around mandate, research, and defensible outcomes. MUN is not a speaking contest here; it is decision-making under scrutiny.</p>
         </section>
         <section className="section committee-directory">
-          {committees.map(({ level, name, agenda, eligibility, portfolio, guide, tag, image }) => (
+          {allCommittees.map(({ level, name, agenda, eligibility, portfolio, guide, tag, image, registrationLink, guideLink }) => (
             <article className="directory-card" key={name}>
               {image ? <img className="committee-poster" src={image} alt={`${name} committee poster`} /> : null}
               <div className="badge-row">
-                <span className={`tag ${tag}`}>{level}</span>
-                <span className="tag neutral">{guide}</span>
+                <span className={`tag ${tag}`}>{level.toUpperCase()}</span>
+                <span className="tag neutral">{guide.toUpperCase()}</span>
               </div>
               <h2>{name}</h2>
               <p>{agenda}</p>
               <ul>
                 <li>Eligibility: {eligibility}</li>
                 <li>Portfolio type: {portfolio}</li>
-                <li>Guide status: Released through delegate resources</li>
+                <li>
+                  Guide status:{" "}
+                  {guideLink ? (
+                    <a href={guideLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", color: "var(--purple)" }}>
+                      {guide}
+                    </a>
+                  ) : (
+                    guide
+                  )}
+                </li>
               </ul>
-              <Link href="/registration">Register for {name}</Link>
+              <Link href={registrationLink || "/registration"} target={registrationLink ? "_blank" : undefined} rel={registrationLink ? "noopener noreferrer" : undefined}>
+                Register for {name}
+              </Link>
             </article>
           ))}
         </section>

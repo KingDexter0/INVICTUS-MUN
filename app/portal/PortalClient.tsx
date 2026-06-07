@@ -112,6 +112,25 @@ type AdminUser = {
   updatedAt: string;
 };
 
+type Committee = {
+  id: string;
+  name: string;
+  code: string;
+  difficulty: string;
+  posterImageUrl?: string | null;
+  posterImagePublicId?: string | null;
+  description: string;
+  eligibility: string;
+  portfolioType: string;
+  guideStatus: string;
+  guideLink?: string | null;
+  registrationLink?: string | null;
+  sortOrder: number;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type Announcement = {
   id: string;
   title: string;
@@ -275,6 +294,10 @@ export function PortalClient() {
   const [deletingResourceId, setDeletingResourceId] = useState("");
   const [deletingEbId, setDeletingEbId] = useState("");
   const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
+  const [committeesList, setCommitteesList] = useState<Committee[]>([]);
+  const [editingCommittee, setEditingCommittee] = useState<Committee | null>(null);
+  const [isSavingCommittee, setIsSavingCommittee] = useState(false);
+  const [deletingCommitteeId, setDeletingCommitteeId] = useState("");
   const [announcement, setAnnouncement] = useState({ title: "", audience: "All registered delegates", message: "" });
   const [importReport, setImportReport] = useState<any | null>(null);
   const [showImportReport, setShowImportReport] = useState(false);
@@ -290,7 +313,8 @@ export function PortalClient() {
         loadAdminCertificates(),
         loadAdminUsers(),
         loadEbProfiles(),
-        loadTestimonials()
+        loadTestimonials(),
+        loadCommitteesList()
       ]);
     } catch (err) {
       console.error("Error polling for updates:", err);
@@ -367,6 +391,7 @@ export function PortalClient() {
       await loadAnalytics();
       await loadAdminCertificates();
       await loadAnnouncements();
+      await loadCommitteesList();
     } catch {
       setMessage("Could not reach the admin account server.");
       setMessageType("error");
@@ -645,6 +670,7 @@ export function PortalClient() {
       void loadAnalytics();
       void loadAdminCertificates();
       void loadAnnouncements();
+      void loadCommitteesList();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, isUnlocked]);
@@ -982,6 +1008,77 @@ export function PortalClient() {
     }
   }
 
+  async function loadCommitteesList() {
+    try {
+      const response = await fetch("/api/admin/committees");
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage(payload.error || "Could not load committees.");
+        setMessageType("error");
+        return;
+      }
+      setCommitteesList(payload.committees || []);
+    } catch {
+      setMessage("Could not load committees.");
+      setMessageType("error");
+    }
+  }
+
+  async function saveCommittee(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setIsSavingCommittee(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(editingCommittee ? `/api/admin/committees/${editingCommittee.id}` : "/api/admin/committees", {
+        method: editingCommittee ? "PATCH" : "POST",
+        body: formData
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not save committee.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(editingCommittee ? "Committee updated." : "Committee created.");
+      setMessageType("success");
+      setEditingCommittee(null);
+      form.reset();
+      await loadCommitteesList();
+    } catch {
+      setMessage("Could not reach the committee server.");
+      setMessageType("error");
+    } finally {
+      setIsSavingCommittee(false);
+    }
+  }
+
+  async function deleteCommittee(committee: Committee) {
+    setDeletingCommitteeId(committee.id);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch(`/api/admin/committees/${committee.id}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.error || "Could not delete committee.");
+        setMessageType("error");
+        return;
+      }
+      setMessage(`Deleted committee: ${committee.name}.`);
+      setMessageType("success");
+      if (editingCommittee?.id === committee.id) setEditingCommittee(null);
+      await loadCommitteesList();
+    } catch {
+      setMessage("Could not reach the committee delete server.");
+      setMessageType("error");
+    } finally {
+      setDeletingCommitteeId("");
+    }
+  }
+
   async function saveTestimonial(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -1229,6 +1326,7 @@ export function PortalClient() {
           <button className="nav-item" type="button" onClick={() => document.querySelector("#resources")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">D</span> Resources <b>{resources.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#announcements")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">N</span> Announcements <b>{announcements.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#eb-management")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">E</span> EB <b>{ebProfiles.length}</b></button>
+          <button className="nav-item" type="button" onClick={() => document.querySelector("#committees-management")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">C</span> Committees <b>{committeesList.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#testimonials")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">T</span> Testimonials <b>{testimonials.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#admin-users")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">U</span> Admin Users <b>{adminUsers.length}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#ops-tools")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">X</span> Ops Tools</button>
@@ -1743,6 +1841,67 @@ export function PortalClient() {
                     </div>
                   </article>
                 )) : <div className="empty-state">No testimonials added yet.</div>}
+              </div>
+            </section>
+          </div>
+
+          <div className="lower-grid">
+            <section className="panel resources-panel" id="committees-management">
+              <div className="panel-head"><div><p className="eyebrow">CONFERENCE ROOMS</p><h2>Committees</h2></div><span className="count-badge">{committeesList.length}</span></div>
+              <form className="resource-manager" onSubmit={saveCommittee}>
+                <input name="name" placeholder="Committee Name" defaultValue={editingCommittee?.name || ""} required />
+                <input name="code" placeholder="Committee Code / Short Name (e.g. UNHRC)" defaultValue={editingCommittee?.code || ""} required />
+                <div className="resource-fields">
+                  <select name="difficulty" defaultValue={editingCommittee?.difficulty || "Beginner"} required>
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                  <select name="guideStatus" defaultValue={editingCommittee?.guideStatus || "Ready"} required>
+                    <option value="Ready">Ready</option>
+                    <option value="Coming Soon">Coming Soon</option>
+                    <option value="Not Ready">Not Ready</option>
+                  </select>
+                </div>
+                <div className="resource-fields">
+                  <input name="eligibility" placeholder="Eligibility (e.g. Grades 10–12)" defaultValue={editingCommittee?.eligibility || ""} required />
+                  <input name="portfolioType" placeholder="Portfolio Type (e.g. Member states)" defaultValue={editingCommittee?.portfolioType || ""} required />
+                </div>
+                <textarea name="description" placeholder="Short Description" defaultValue={editingCommittee?.description || ""} required />
+                <div className="resource-fields">
+                  <input name="guideLink" placeholder="Background Guide Link (optional)" defaultValue={editingCommittee?.guideLink || ""} />
+                  <input name="registrationLink" placeholder="Custom Registration Link (optional)" defaultValue={editingCommittee?.registrationLink || ""} />
+                </div>
+                <div className="resource-fields">
+                  <input name="sortOrder" type="number" placeholder="Sort Order" defaultValue={editingCommittee?.sortOrder ?? 0} required />
+                  <select name="isPublished" defaultValue={editingCommittee ? (editingCommittee.isPublished ? "true" : "false") : "true"}>
+                    <option value="true">Published</option>
+                    <option value="false">Draft</option>
+                  </select>
+                </div>
+                <input name="poster" type="file" accept="image/*" />
+                <div className="dialog-actions action-wrap">
+                  <button className="button secondary full" type="submit" disabled={isSavingCommittee}>{isSavingCommittee ? "Saving..." : editingCommittee ? "Update Committee" : "Create Committee"}</button>
+                  {editingCommittee ? <button className="button ghost" type="button" onClick={() => setEditingCommittee(null)}>Cancel edit</button> : null}
+                </div>
+              </form>
+              <div className="resource-admin-list">
+                {committeesList.length ? committeesList.map((committeeItem) => (
+                  <article className="resource-admin-item" key={committeeItem.id}>
+                    <div className="admin-list-with-photo">
+                      {committeeItem.posterImageUrl ? <img src={committeeItem.posterImageUrl} alt={committeeItem.name} /> : <div className="avatar purple" style={{ display: "inline-flex", width: "48px", height: "48px", alignItems: "center", justifyContent: "center", borderRadius: "8px", fontWeight: "bold" }}>{committeeItem.code}</div>}
+                      <span>
+                        <strong>{committeeItem.name} ({committeeItem.code})</strong>
+                        <small>{committeeItem.difficulty} — {committeeItem.guideStatus} — Order: {committeeItem.sortOrder} — {committeeItem.isPublished ? "Published" : "Draft"}</small>
+                        <p>{committeeItem.description}</p>
+                      </span>
+                    </div>
+                    <div className="dialog-actions action-wrap">
+                      <button className="row-action" type="button" onClick={() => setEditingCommittee(committeeItem)}>Edit</button>
+                      <button className="row-action" type="button" disabled={deletingCommitteeId === committeeItem.id} onClick={() => deleteCommittee(committeeItem)}>{deletingCommitteeId === committeeItem.id ? "Deleting..." : "Delete"}</button>
+                    </div>
+                  </article>
+                )) : <div className="empty-state">No committees added yet.</div>}
               </div>
             </section>
           </div>
