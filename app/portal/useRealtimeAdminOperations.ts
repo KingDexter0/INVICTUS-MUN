@@ -22,9 +22,17 @@ export function useRealtimeAdminOperations({
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const eventSourceRef = useRef<EventSource | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const retryDelayRef = useRef<number>(2000); // Start with 2s retry delay
 
   useEffect(() => {
     if (!isUnlocked) {
+      cleanup();
+      setStatus("connecting");
+      return;
+    }
+
+    function cleanup() {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -33,29 +41,43 @@ export function useRealtimeAdminOperations({
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
-      setStatus("connecting");
-      return;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     }
 
-    let retryCount = 0;
-    const maxRetries = 3;
-
     function startSSE() {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-
+      cleanup();
       setStatus("connecting");
+
+      console.log("[Realtime] Connecting to EventSource...");
       const es = new EventSource("/api/admin/operations/updates");
       eventSourceRef.current = es;
 
+      es.onopen = () => {
+        console.log("[Realtime] EventSource connection opened.");
+        setStatus("connected");
+        retryDelayRef.current = 2000; // Reset retry delay on success
+        if (pollIntervalRef.current) {
+          console.log("[Realtime] Stopping fallback polling.");
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+      };
+
       es.addEventListener("connected", () => {
         setStatus("connected");
-        retryCount = 0;
+        retryDelayRef.current = 2000;
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+      });
+
+      // Handle ping event from server
+      es.addEventListener("ping", () => {
+        setStatus("connected");
       });
 
       es.addEventListener("delegate:updated", (e) => {
@@ -95,52 +117,38 @@ export function useRealtimeAdminOperations({
       });
 
       es.onerror = () => {
+        console.warn("[Realtime] EventSource error. Falling back to polling...");
         es.close();
         eventSourceRef.current = null;
-        retryCount++;
+        
+        // Start polling immediately if not already running
+        startPolling();
 
-        if (retryCount <= maxRetries) {
-          setStatus("connecting");
-          setTimeout(startSSE, 2000);
-        } else {
-          startPolling();
-        }
+        // Schedule reconnection attempt with backoff
+        const delay = retryDelayRef.current;
+        retryDelayRef.current = Math.min(delay * 2, 30000); // Exponential backoff up to 30s
+        console.log(`[Realtime] Reconnecting in ${delay}ms...`);
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          startSSE();
+        }, delay);
       };
     }
 
     function startPolling() {
       setStatus("polling");
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
+      if (!pollIntervalRef.current) {
+        console.log("[Realtime] Starting fallback polling (every 5 seconds).");
+        pollIntervalRef.current = setInterval(() => {
+          void triggerPollRefresh();
+        }, 5000);
       }
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-      // Poll database changes every 5 seconds as fallback
-      pollIntervalRef.current = setInterval(() => {
-        void triggerPollRefresh();
-      }, 5000);
     }
 
-    const isLocal = typeof window !== "undefined" && 
-      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
-    if (isLocal) {
-      startSSE();
-    } else {
-      startPolling();
-    }
+    startSSE();
 
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      cleanup();
     };
   }, [isUnlocked]);
 
