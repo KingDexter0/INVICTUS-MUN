@@ -21,6 +21,12 @@ const COMMITTEES = [
   "UNODC"
 ];
 
+function formatCurrency(value: number | string | null | undefined) {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount)) return "0";
+  return amount.toLocaleString("en-IN");
+}
+
 export function RegistrationClient() {
   const router = useRouter();
   const [flow, setFlow] = useState<"choose" | "individual" | "delegation">("choose");
@@ -220,7 +226,7 @@ export function RegistrationClient() {
             Your payment status is currently <strong>PENDING</strong>. Once event admins review your uploaded transaction screenshot, your registration will be verified and your QR pass will be unlocked.
           </p>
           <p style={{ fontSize: "0.95em", marginTop: "10px" }}>
-            Total amount paid/under review: <strong>₹{totalAmount.toLocaleString("en-IN")}</strong>
+            Total amount paid/under review: <strong>₹{formatCurrency(totalAmount)}</strong>
           </p>
         </div>
 
@@ -335,7 +341,7 @@ export function RegistrationClient() {
                 <div className="empty-panel" style={{ padding: "20px", background: "rgba(109,67,200,.04)", border: "1px solid rgba(109,67,200,.1)", borderRadius: "12px" }}>
                   <h3 style={{ fontWeight: "bold", color: "var(--purple)", marginBottom: "8px" }}>Calculated Registration Fee</h3>
                   <p style={{ fontSize: "1.8em", fontWeight: "bold", margin: "10px 0 0" }}>
-                    ₹{individualPrice.toLocaleString("en-IN")}
+                    ₹{formatCurrency(individualPrice)}
                   </p>
                   <small style={{ color: "var(--text-muted)", display: "block", marginTop: "5px" }}>
                     {isIndAccommodation ? "Includes delegate fee + accommodation" : "Delegate fee only"}
@@ -425,10 +431,10 @@ export function RegistrationClient() {
                   ) : (
                     <>
                       <p style={{ fontSize: "1.8em", fontWeight: "bold", margin: "10px 0 0" }}>
-                        ₹{delegationTotalPrice.toLocaleString("en-IN")}
+                        ₹{formatCurrency(delegationTotalPrice)}
                       </p>
                       <small style={{ color: "var(--text-muted)", display: "block", marginTop: "5px" }}>
-                        {delegatesCount} delegates @ ₹{delegationPricePerPerson.toLocaleString("en-IN")} per delegate ({isDelAccommodation ? "with accommodation" : "without accommodation"})
+                        {delegatesCount} delegates @ ₹{formatCurrency(delegationPricePerPerson)} per delegate ({isDelAccommodation ? "with accommodation" : "without accommodation"})
                       </small>
                     </>
                   )}

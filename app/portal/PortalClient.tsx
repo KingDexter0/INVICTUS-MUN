@@ -164,6 +164,23 @@ const DEFAULT_CAPACITIES: Record<string, number> = {
   "International Press": 40
 };
 
+function formatDateTime(value: string | Date | null | undefined) {
+  if (!value) return "—";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+}
+
+function formatNumber(value: number | null | undefined) {
+  return Number(value ?? 0).toLocaleString();
+}
+
+function formatCurrency(value: number | string | null | undefined) {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount)) return "₹0";
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
 function statusClass(status: string) {
   const normalized = status.toLowerCase();
   if (normalized.includes("verified") || normalized.includes("approved")) return "verified";
@@ -1259,7 +1276,7 @@ export function PortalClient() {
 
           <div className="stats-grid">
             <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("all")}><div className="stat-head"><span className="stat-icon lavender">R</span><span className="trend up">Live</span></div><p>Total registrations</p><h3>{registrations.length}</h3><small>Click to view all</small></button>
-            <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("payments")}><div className="stat-head"><span className="stat-icon amber">P</span><span className="trend">{stats.needsPayment} pending</span></div><p>Revenue collected</p><h3>INR {stats.revenue.toLocaleString("en-IN")}</h3><small>Click to review payments</small></button>
+            <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("payments")}><div className="stat-head"><span className="stat-icon amber">P</span><span className="trend">{stats.needsPayment} pending</span></div><p>Revenue collected</p><h3>INR {formatNumber(stats?.revenue)}</h3><small>Click to review payments</small></button>
             <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("approved")}><div className="stat-head"><span className="stat-icon green">A</span><span className="trend up">Approved</span></div><p>Approved delegates</p><h3>{stats.approved.length}</h3><small>Click to view approved</small></button>
             <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("allotted")}><div className="stat-head"><span className="stat-icon blue">Q</span><span className="trend">QR</span></div><p>Allotments released</p><h3>{stats.allotted.length}</h3><small>Click to view QR-ready</small></button>
           </div>
@@ -1370,7 +1387,7 @@ export function PortalClient() {
                             </td>
                             <td>
                               {registration.allotmentEmailSent ? (
-                                <span className="status verified" title={registration.allotmentEmailSentAt ? `Sent at ${new Date(registration.allotmentEmailSentAt).toLocaleString()}` : ""}>Sent</span>
+                                <span className="status verified" title={registration.allotmentEmailSentAt ? `Sent at ${formatDateTime(registration.allotmentEmailSentAt)}` : ""}>Sent</span>
                               ) : !hasEmail ? (
                                 <span className="status rejected">Missing Email</span>
                               ) : !hasAllotment ? (
@@ -1479,7 +1496,7 @@ export function PortalClient() {
                             </td>
                             <td>
                               {registration.allotmentEmailSent ? (
-                                <span className="status verified" title={registration.allotmentEmailSentAt ? `Sent at ${new Date(registration.allotmentEmailSentAt).toLocaleString()}` : ""}>Sent</span>
+                                <span className="status verified" title={registration.allotmentEmailSentAt ? `Sent at ${formatDateTime(registration.allotmentEmailSentAt)}` : ""}>Sent</span>
                               ) : !hasEmail ? (
                                 <span className="status rejected">Missing Email</span>
                               ) : !hasAllotment ? (
@@ -1633,7 +1650,7 @@ export function PortalClient() {
                     <article className="resource-admin-item" key={ann.id}>
                       <div>
                         <strong>{ann.title}</strong>
-                        <small>{ann.audience} - {new Date(ann.createdAt).toLocaleString()}</small>
+                        <small>{ann.audience} - {formatDateTime(ann.createdAt)}</small>
                         <p style={{ marginTop: "5px", color: "var(--text-muted)", fontSize: "0.9em", whiteSpace: "pre-wrap" }}>
                           {ann.message}
                         </p>
@@ -1843,7 +1860,7 @@ export function PortalClient() {
               {active.registrationType !== "delegation" && (
                 <div><strong>Portfolio</strong><span>{active.allottedPortfolio || active.portfolio1 || "No portfolio"}</span></div>
               )}
-              <div><strong>Total Fee Paid</strong><span>₹{(active.totalAmountPaid ?? active.amount).toLocaleString("en-IN")}</span></div>
+              <div><strong>Total Fee Paid</strong><span>{formatCurrency(active?.totalAmountPaid ?? active?.amount)}</span></div>
               <div><strong>Accommodation?</strong><span>{active.accommodationRequired ? "Yes" : "No"}</span></div>
               
               {active.registrationType === "delegation" ? (

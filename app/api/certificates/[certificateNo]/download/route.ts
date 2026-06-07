@@ -117,9 +117,14 @@ export async function GET(
     const colY = 110;
 
     const options: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
-    const checkedInDate = checkedInAt ? new Date(checkedInAt) : new Date();
-    const checkedInStr = checkedInDate.toLocaleDateString("en-US", options);
-    const issuedStr = new Date(issuedAt).toLocaleDateString("en-US", options);
+    const checkedInDate = checkedInAt ? new Date(checkedInAt) : null;
+    const checkedInStr = (checkedInDate && !isNaN(checkedInDate.getTime()))
+      ? checkedInDate.toLocaleDateString("en-US", options)
+      : "Not checked in";
+    const issuedDate = issuedAt ? new Date(issuedAt) : null;
+    const issuedStr = (issuedDate && !isNaN(issuedDate.getTime()))
+      ? issuedDate.toLocaleDateString("en-US", options)
+      : "—";
 
     // Column 1: Verification & Registration Code
     page.drawText("REGISTRATION CODE", { x: 70, y: colY + 30, size: 10, font: fontBold, color: lightGray });

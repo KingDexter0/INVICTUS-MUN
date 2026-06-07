@@ -13,9 +13,10 @@ export default async function CertificatePage({ params }: { params: { certificat
 
   if (individualCert) {
     const reg = individualCert.registration;
-    const issuedDateStr = new Date(individualCert.issuedAt).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric"
-    });
+    const issuedDate = individualCert.issuedAt ? new Date(individualCert.issuedAt) : null;
+    const issuedDateStr = (issuedDate && !isNaN(issuedDate.getTime()))
+      ? issuedDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : "—";
 
     return (
       <>
@@ -65,9 +66,10 @@ export default async function CertificatePage({ params }: { params: { certificat
 
   if (delegateCert) {
     const del = delegateCert.delegate;
-    const issuedDateStr = new Date(delegateCert.issuedAt).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric"
-    });
+    const issuedDate = delegateCert.issuedAt ? new Date(delegateCert.issuedAt) : null;
+    const issuedDateStr = (issuedDate && !isNaN(issuedDate.getTime()))
+      ? issuedDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : "—";
 
     return (
       <>
