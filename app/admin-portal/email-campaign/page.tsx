@@ -136,6 +136,7 @@ export default function EmailCampaignPage() {
         <StatusPill label="SMTP" ok={Boolean(smtpOk)} value={smtpOk ? "Configured" : "Not configured"} />
         {preview && (
           <>
+            <StatPill label="Total Delegates" value={preview.totals.individuals.total + preview.totals.delegates.total} color="#3b82f6" />
             <StatPill label="Eligible" value={preview.totals.totalEligible} color="#6d43c8" />
             <StatPill label="Already sent" value={preview.totals.totalAlreadySent} color="#059669" />
           </>

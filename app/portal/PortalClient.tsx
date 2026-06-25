@@ -764,20 +764,40 @@ export function PortalClient() {
   }, [registrations, delegationDelegates]);
 
   const stats = useMemo(() => {
-    const verified = registrations.filter((item) => item.paymentStatus === "Verified");
-    const approved = registrations.filter((item) => item.registrationStatus === "Approved");
-    const allotted = registrations.filter((item) => item.allotmentStatus === "Allotted");
-    const needsPayment = registrations.filter((item) => item.paymentStatus !== "Verified").length;
-    const needsAllotment = registrations.filter((item) => item.registrationStatus === "Approved" && item.allotmentStatus !== "Allotted").length;
+    // Individual registrations (where type is individual)
+    const indRegs = registrations.filter((item) => item.registrationType === "individual");
+
+    // Total approved delegates count = approved IndividualRegistration count + DelegationDelegate count for approved DelegationRegistration records.
+    const approvedIndividuals = indRegs.filter((item) => item.registrationStatus === "Approved");
+    const approvedDelegates = delegationDelegates.filter((d) => d.delegation?.registrationStatus === "Approved");
+    const totalApprovedCount = approvedIndividuals.length + approvedDelegates.length;
+
+    // Total allotted delegates count = allotted IndividualRegistration count + allotted DelegationDelegate count.
+    const allottedIndividuals = indRegs.filter((item) => item.allotmentStatus === "Allotted");
+    const allottedDelegates = delegationDelegates.filter((d) => d.allotmentStatus === "Allotted");
+    const totalAllottedCount = allottedIndividuals.length + allottedDelegates.length;
+
+    // Total needs payment count = needs payment IndividualRegistration count + DelegationDelegates of delegations pending payment.
+    const needsPaymentIndividuals = indRegs.filter((item) => item.paymentStatus !== "Verified").length;
+    const needsPaymentDelegates = delegationDelegates.filter((d) => d.delegation?.paymentStatus !== "Verified").length;
+    const totalNeedsPaymentCount = needsPaymentIndividuals + needsPaymentDelegates;
+
+    // Total needs allotment count = approved IndividualRegistrations not allotted + DelegationDelegates of approved delegations not allotted.
+    const needsAllotmentIndividuals = indRegs.filter((item) => item.registrationStatus === "Approved" && item.allotmentStatus !== "Allotted").length;
+    const needsAllotmentDelegates = delegationDelegates.filter((d) => d.delegation?.registrationStatus === "Approved" && d.allotmentStatus !== "Allotted").length;
+    const totalNeedsAllotmentCount = needsAllotmentIndividuals + needsAllotmentDelegates;
+
+    const verifiedRegs = registrations.filter((item) => item.paymentStatus === "Verified");
+
     return {
-      verified,
-      approved,
-      allotted,
-      needsPayment,
-      needsAllotment,
-      revenue: verified.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+      verified: verifiedRegs,
+      approved: { length: totalApprovedCount },
+      allotted: { length: totalAllottedCount },
+      needsPayment: totalNeedsPaymentCount,
+      needsAllotment: totalNeedsAllotmentCount,
+      revenue: verifiedRegs.reduce((sum, item) => sum + Number(item.amount || 0), 0)
     };
-  }, [registrations]);
+  }, [registrations, delegationDelegates]);
 
   const visibleIndividuals = useMemo(() => {
     return registrations
@@ -1418,7 +1438,7 @@ export function PortalClient() {
           <Link className="nav-item" href="/"><span className="nav-icon">H</span> Public Site</Link>
           <Link className="nav-item" href="/admin-portal/check-in"><span className="nav-icon">Q</span> QR Check-in</Link>
           <button className="nav-item active" type="button" onClick={() => clearView()}><span className="nav-icon">O</span> Overview</button>
-          <button className="nav-item" type="button" onClick={() => jumpToRegistrations("all")}><span className="nav-icon">R</span> Registrations <b>{registrations.length}</b></button>
+          <button className="nav-item" type="button" onClick={() => jumpToRegistrations("all")}><span className="nav-icon">R</span> Registrations <b>{registrations.filter(r => r.registrationType === "individual").length + delegationDelegates.length}</b></button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("payments")}><span className="nav-icon">P</span> Payments <b>{stats.needsPayment}</b></button>
           <button className="nav-item" type="button" onClick={() => jumpToRegistrations("allotments")}><span className="nav-icon">A</span> Allotments <b>{stats.needsAllotment}</b></button>
           <button className="nav-item" type="button" onClick={() => document.querySelector("#resources")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span className="nav-icon">D</span> Resources <b>{resources.length}</b></button>
@@ -1472,7 +1492,7 @@ export function PortalClient() {
           {message ? <p className={`form-message ${messageType}`} role="status">{message}</p> : null}
 
           <div className="stats-grid">
-            <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("all")}><div className="stat-head"><span className="stat-icon lavender">R</span><span className="trend up">Live</span></div><p>Total registrations</p><h3>{registrations.length}</h3><small>Click to view all</small></button>
+            <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("all")}><div className="stat-head"><span className="stat-icon lavender">R</span><span className="trend up">Live</span></div><p>Total delegates</p><h3>{registrations.filter(r => r.registrationType === "individual").length + delegationDelegates.length}</h3><small>Click to view all</small></button>
             <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("payments")}><div className="stat-head"><span className="stat-icon amber">P</span><span className="trend">{stats.needsPayment} pending</span></div><p>Revenue collected</p><h3>INR {formatNumber(stats?.revenue)}</h3><small>Click to review payments</small></button>
             <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("approved")}><div className="stat-head"><span className="stat-icon green">A</span><span className="trend up">Approved</span></div><p>Approved delegates</p><h3>{stats.approved.length}</h3><small>Click to view approved</small></button>
             <button className="stat-card clickable-card" type="button" onClick={() => jumpToRegistrations("allotted")}><div className="stat-head"><span className="stat-icon blue">Q</span><span className="trend">QR</span></div><p>Allotments released</p><h3>{stats.allotted.length}</h3><small>Click to view QR-ready</small></button>
